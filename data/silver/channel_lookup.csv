@@ -1,156 +1,140 @@
 channel_id,channel_name
-1.0,Channel_1.0
-2.0,Channel_2.0
-3.0,Channel_3.0
-4.0,Channel_4.0
-6.0,Channel_6.0
-7.0,Channel_7.0
-8.0,Channel_8.0
-9.0,Channel_9.0
-10.0,Channel_10.0
-11.0,Channel_11.0
-12.0,Channel_12.0
-13.0,Channel_13.0
-14.0,Channel_14.0
-15.0,Channel_15.0
-16.0,Channel_16.0
-17.0,Channel_17.0
-18.0,Channel_18.0
-19.0,Channel_19.0
-20.0,Channel_20.0
-21.0,Channel_21.0
-22.0,Channel_22.0
-23.0,Channel_23.0
-24.0,Channel_24.0
-25.0,Channel_25.0
-26.0,Channel_26.0
-27.0,Channel_27.0
-28.0,Channel_28.0
-29.0,Channel_29.0
-30.0,Channel_30.0
-31.0,Channel_31.0
-32.0,Channel_32.0
-33.0,Channel_33.0
-34.0,Channel_34.0
-35.0,Channel_35.0
-36.0,Channel_36.0
-37.0,Channel_37.0
-38.0,Channel_38.0
-39.0,Channel_39.0
-40.0,Channel_40.0
-41.0,Channel_41.0
-42.0,Channel_42.0
-43.0,Channel_43.0
-44.0,Channel_44.0
-45.0,Channel_45.0
-46.0,Channel_46.0
-47.0,Channel_47.0
-48.0,Channel_48.0
-49.0,Channel_49.0
-50.0,Channel_50.0
-51.0,Channel_51.0
-52.0,Channel_52.0
-53.0,Channel_53.0
-54.0,Channel_54.0
-55.0,Channel_55.0
-56.0,Channel_56.0
-57.0,Channel_57.0
-58.0,Channel_58.0
-59.0,Channel_59.0
-60.0,Channel_60.0
-61.0,Channel_61.0
-62.0,Channel_62.0
-63.0,Channel_63.0
-64.0,Channel_64.0
-65.0,Channel_65.0
-66.0,Channel_66.0
-67.0,Channel_67.0
-68.0,Channel_68.0
-69.0,Channel_69.0
-70.0,Channel_70.0
-71.0,Channel_71.0
-73.0,Channel_73.0
-74.0,Channel_74.0
-75.0,Channel_75.0
-76.0,Channel_76.0
-78.0,Channel_78.0
-79.0,Channel_79.0
-80.0,Channel_80.0
-81.0,Channel_81.0
-82.0,Channel_82.0
-83.0,Channel_83.0
-84.0,Channel_84.0
-86.0,Channel_86.0
-87.0,Channel_87.0
-88.0,Channel_88.0
-89.0,Channel_89.0
-90.0,Channel_90.0
-91.0,Channel_91.0
-92.0,Channel_92.0
-93.0,Channel_93.0
-94.0,Channel_94.0
-95.0,Channel_95.0
-96.0,Channel_96.0
-97.0,Channel_97.0
-98.0,Channel_98.0
-99.0,Channel_99.0
-100.0,Channel_100.0
-101.0,Channel_101.0
-102.0,Channel_102.0
-103.0,Channel_103.0
-104.0,Channel_104.0
-105.0,Channel_105.0
-106.0,Channel_106.0
-107.0,Channel_107.0
-108.0,Channel_108.0
-109.0,Channel_109.0
-110.0,Channel_110.0
-111.0,Channel_111.0
-112.0,Channel_112.0
-113.0,Channel_113.0
-114.0,Channel_114.0
-115.0,Channel_115.0
-116.0,Channel_116.0
-117.0,Channel_117.0
-118.0,Channel_118.0
-119.0,Channel_119.0
-120.0,Channel_120.0
-121.0,Channel_121.0
-122.0,Channel_122.0
-123.0,Channel_123.0
-124.0,Channel_124.0
-125.0,Channel_125.0
-126.0,Channel_126.0
-127.0,Channel_127.0
-128.0,Channel_128.0
-129.0,Channel_129.0
-130.0,Channel_130.0
-131.0,Channel_131.0
-132.0,Channel_132.0
-133.0,Channel_133.0
-134.0,Channel_134.0
-135.0,Channel_135.0
-136.0,Channel_136.0
-137.0,Channel_137.0
-138.0,Channel_138.0
-139.0,Channel_139.0
-140.0,Channel_140.0
-143.0,Channel_143.0
-144.0,Channel_144.0
-145.0,Channel_145.0
-146.0,Channel_146.0
-147.0,Channel_147.0
-148.0,Channel_148.0
-149.0,Channel_149.0
-150.0,Channel_150.0
-151.0,Channel_151.0
-152.0,Channel_152.0
-153.0,Channel_153.0
-154.0,Channel_154.0
-155.0,Channel_155.0
-156.0,Channel_156.0
-157.0,Channel_157.0
-158.0,Channel_158.0
-159.0,Channel_159.0
-160.0,Channel_160.0
-163.0,Channel_163.0
+1.0,Agent
+3.0,Agent
+4.0,Agent
+6.0,Agent
+7.0,Agent
+8.0,Agent
+9.0,Agent
+10.0,Agent
+11.0,Agent
+12.0,Agent
+13.0,Agent
+14.0,Agent
+15.0,Agent
+16.0,Agent
+17.0,Agent
+18.0,Agent
+19.0,Agent
+20.0,Agent
+21.0,Website
+22.0,Website
+23.0,Website
+24.0,Website
+25.0,Website
+26.0,Website
+27.0,Website
+28.0,Website
+29.0,Website
+30.0,Website
+31.0,Website
+32.0,Website
+33.0,Website
+35.0,Website
+36.0,Website
+37.0,Website
+38.0,Website
+39.0,Website
+40.0,Website
+42.0,Mobile App
+44.0,Mobile App
+45.0,Mobile App
+46.0,Mobile App
+47.0,Mobile App
+48.0,Mobile App
+49.0,Mobile App
+50.0,Mobile App
+51.0,Mobile App
+52.0,Mobile App
+53.0,Mobile App
+54.0,Mobile App
+55.0,Mobile App
+56.0,Mobile App
+58.0,Mobile App
+59.0,Mobile App
+60.0,Mobile App
+61.0,Branch
+62.0,Branch
+63.0,Branch
+64.0,Branch
+65.0,Branch
+66.0,Branch
+69.0,Branch
+70.0,Branch
+73.0,Branch
+75.0,Branch
+78.0,Branch
+79.0,Branch
+80.0,Branch
+81.0,Call Center
+86.0,Call Center
+87.0,Call Center
+88.0,Call Center
+89.0,Call Center
+90.0,Call Center
+91.0,Call Center
+92.0,Call Center
+93.0,Call Center
+94.0,Call Center
+95.0,Call Center
+96.0,Call Center
+97.0,Call Center
+98.0,Call Center
+99.0,Call Center
+101.0,Aggregator
+102.0,Aggregator
+103.0,Aggregator
+104.0,Aggregator
+105.0,Aggregator
+106.0,Aggregator
+107.0,Aggregator
+108.0,Aggregator
+109.0,Aggregator
+110.0,Aggregator
+111.0,Aggregator
+112.0,Aggregator
+113.0,Aggregator
+114.0,Aggregator
+115.0,Aggregator
+116.0,Aggregator
+117.0,Aggregator
+118.0,Aggregator
+119.0,Aggregator
+120.0,Aggregator
+121.0,Partner
+122.0,Partner
+124.0,Partner
+125.0,Partner
+126.0,Partner
+127.0,Partner
+128.0,Partner
+129.0,Partner
+130.0,Partner
+131.0,Partner
+132.0,Partner
+133.0,Partner
+134.0,Partner
+135.0,Partner
+136.0,Partner
+137.0,Partner
+138.0,Partner
+139.0,Partner
+140.0,Partner
+143.0,Corporate
+144.0,Corporate
+145.0,Corporate
+146.0,Corporate
+147.0,Corporate
+148.0,Corporate
+150.0,Corporate
+151.0,Corporate
+152.0,Corporate
+153.0,Corporate
+154.0,Corporate
+155.0,Corporate
+156.0,Corporate
+157.0,Corporate
+158.0,Corporate
+159.0,Corporate
+160.0,Corporate
+163.0,Corporate
