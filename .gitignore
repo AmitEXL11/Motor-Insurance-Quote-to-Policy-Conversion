@@ -3,7 +3,3 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-# Ignore generated data outputs
-data/gold/data_marts/ai_monitoring_dashboard.csv
-data/gold/facts/fact_customer_journey.csv
-data/gold/facts/fact_ai_interaction.csv
