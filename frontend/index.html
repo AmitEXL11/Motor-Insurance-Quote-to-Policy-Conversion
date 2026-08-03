@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quote-to-Policy Agent Pipeline — Live Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow">Live Agent Pipeline</div>
+    <h1>Quote-to-Policy, decided live.</h1>
+    <p class="sub">Seven agents, one shared context. Every number is computed in code — Claude's job is to explain it, never invent it.</p>
+
+    <div class="bento">
+      <div class="panel hero">
+        <label>Customer</label>
+        <select id="profileSel"></select>
+        <label>Question for the Customer Intelligence Agent</label>
+        <input type="text" id="question" value="Why is my premium higher than my friend's for a similar car?">
+        <button class="run" id="runBtn" onclick="runPipeline()">Run Pipeline</button>
+        <div class="datastatus" id="dataStatus">Using 4 built-in demo profiles.</div>
+        <div class="upload-grid">
+          <label class="file-btn">customer360.csv<input type="file" accept=".csv" onchange="handleUpload(event,'c360')"></label>
+          <label class="file-btn">underwriting.csv<input type="file" accept=".csv" onchange="handleUpload(event,'uw')"></label>
+          <label class="file-btn">claims.csv<input type="file" accept=".csv" onchange="handleUpload(event,'claims')"></label>
+          <label class="file-btn">executive.csv<input type="file" accept=".csv" onchange="handleUpload(event,'exec')"></label>
+        </div>
+      </div>
+
+      <div class="panel info">
+        <h3>How this differs from six chained prompts</h3>
+        <div class="legend-item"><span class="legend-dot" style="background:#3B4E8C"></span><span class="tag computed" style="margin:0 4px 0 0">computed</span> risk score, conversion estimate, document match %, and offer premium are all plain JavaScript — never LLM-invented.</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--terracotta)"></span><span class="tag claude" style="margin:0 4px 0 0">Claude</span> narrates each computed result and handles the one genuinely open-ended step — the customer's question.</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--olive)"></span>Every agent reads a shared context object built up by the agents before it — not just the last one.</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span>Underwriting's AI recommendation and the rule-enforced final decision are computed independently — the override rate is real, not scripted.</div>
+      </div>
+
+      <div class="panel agents">
+        <h3>The pipeline</h3>
+        <div class="agents-sub">Runs in order, left to right, top to bottom.</div>
+        <div class="agent-grid" id="agentGrid"></div>
+      </div>
+
+      <div class="panel kpi">
+        <div class="eyebrow">This session</div>
+        <div class="kpi-num" id="kpiMain">0%</div>
+        <div class="kpi-label">straight-through rate</div>
+        <div class="kpi-mini">
+          <div><div class="n" id="kpiRuns">0</div><div class="l">runs</div></div>
+          <div><div class="n" id="kpiOverride">0%</div><div class="l">AI override rate</div></div>
+          <div><div class="n" id="kpiConv">—</div><div class="l">avg conversion est.</div></div>
+        </div>
+        <div class="kpi-real" id="kpiReal">Upload executive_dashboard.csv to compare against your real warehouse KPIs.</div>
+      </div>
+
+      <div class="panel log">
+        <h3>Session log</h3>
+        <div class="log-list" id="logList"><div class="log-empty">No runs yet.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
