@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXL | Motor Insurance Quote-to-Policy Conversion</title>
+<style>
+:root {
+  --navy:#003057; --navy2:#1A4A6B; --navy3:#E8EFF5;
+  --orange:#F26522; --orange2:#FDE8DA;
+  --ink:#1A2332; --ink2:#4A6080; --ink3:#8AA0B8;
+  --surface:#fff; --s1:#F5F8FA; --line:#D4E0EA;
+  --green:#16A34A; --green2:#DCFCE7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);color:var(--ink)}
+
+/* ── NAV ── */
+nav{background:var(--navy);padding:0 40px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-logo{display:flex;align-items:center;gap:10px}
+.nav-mark{width:32px;height:32px;background:var(--orange);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0}
+.nav-name{color:#fff;font-size:14px;font-weight:600}
+.nav-links{display:flex;gap:6px}
+.nav-btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:all .15s}
+.nav-btn.outline{background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.75)}
+.nav-btn.outline:hover{background:rgba(255,255,255,0.08);color:#fff}
+.nav-btn.solid{background:var(--orange);border:1px solid var(--orange);color:#fff}
+.nav-btn.solid:hover{background:#E05510}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,var(--navy) 0%,#1A4A6B 60%,#0D3352 100%);padding:80px 40px 90px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 70% 50%,rgba(242,101,34,0.12) 0%,transparent 60%)}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(242,101,34,0.15);border:1px solid rgba(242,101,34,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:#FB923C;letter-spacing:.06em;text-transform:uppercase;margin-bottom:20px}
+.hero-dot{width:6px;height:6px;border-radius:50%;background:#FB923C;animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:46px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.08;margin-bottom:16px;max-width:800px;margin-left:auto;margin-right:auto}
+.hero h1 span{color:var(--orange)}
+.hero-sub{font-size:16px;color:rgba(255,255,255,0.6);max-width:580px;margin:0 auto 36px;line-height:1.6}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-btn{padding:13px 28px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+.hero-btn.primary{background:var(--orange);color:#fff;border:1px solid var(--orange)}
+.hero-btn.primary:hover{background:#E05510;transform:translateY(-1px)}
+.hero-btn.secondary{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18)}
+.hero-btn.secondary:hover{background:rgba(255,255,255,0.14)}
+.hero-stats{display:flex;gap:0;justify-content:center;margin-top:56px;border-top:1px solid rgba(255,255,255,0.08);padding-top:36px}
+.hs{padding:0 36px;border-right:1px solid rgba(255,255,255,0.08);text-align:center}
+.hs:last-child{border-right:none}
+.hs-val{font-size:28px;font-weight:800;color:#fff;font-family:'SF Mono',ui-monospace,monospace}
+.hs-label{font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px;text-transform:uppercase;letter-spacing:.05em}
+
+/* ── SECTION ── */
+.section{padding:64px 40px}
+.section.alt{background:var(--surface)}
+.section-tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);margin-bottom:8px}
+.section-title{font-size:32px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:10px;line-height:1.1}
+.section-sub{font-size:15px;color:var(--ink2);max-width:560px;line-height:1.6;margin-bottom:40px}
+
+/* ── CARDS GRID ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;max-width:1100px;margin:0 auto}
+
+/* ── PRODUCT CARDS ── */
+.product-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:box-shadow .2s,transform .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.product-card:hover{box-shadow:0 8px 32px rgba(0,48,87,0.12);transform:translateY(-3px)}
+.pc-banner{height:140px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.pc-banner.dashboard{background:linear-gradient(135deg,#003057 0%,#1A4A6B 100%)}
+.pc-banner.demo{background:linear-gradient(135deg,#1A1A2E 0%,#16213E 100%)}
+.pc-banner-icon{font-size:40px;opacity:.9}
+.pc-banner-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px}
+.pc-body{padding:20px;flex:1;display:flex;flex-direction:column}
+.pc-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;margin-bottom:10px;font-family:'SF Mono',ui-monospace,monospace}
+.pc-tag.bi{background:var(--navy3);color:var(--navy)}
+.pc-tag.ai{background:rgba(124,58,237,0.12);color:#7C3AED}
+.pc-title{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.pc-desc{font-size:13px;color:var(--ink2);line-height:1.55;flex:1}
+.pc-footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.pc-link{font-size:12px;font-weight:700;color:var(--orange);text-decoration:none;display:flex;align-items:center;gap:4px}
+.pc-link:hover{color:#E05510}
+.pc-pills{display:flex;gap:6px;flex-wrap:wrap}
+.pc-pill{font-size:9.5px;padding:2px 7px;border-radius:8px;background:var(--s1);color:var(--ink3);font-weight:600}
+
+/* ── PROBLEM SECTION ── */
+.problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:900px;margin:0 auto}
+.prob-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.prob-icon{font-size:20px;margin-bottom:8px}
+.prob-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.prob-desc{font-size:12px;color:var(--ink2);line-height:1.5}
+
+/* ── PIPELINE STEPS ── */
+.pipeline{display:flex;align-items:flex-start;gap:0;max-width:1000px;margin:0 auto;overflow-x:auto;padding-bottom:8px}
+.pipe-step{flex:1;min-width:120px;text-align:center;position:relative}
+.pipe-step::after{content:'→';position:absolute;right:-10px;top:18px;font-size:16px;color:var(--ink3);z-index:1}
+.pipe-step:last-child::after{display:none}
+.pipe-num{width:38px;height:38px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-family:'SF Mono',ui-monospace,monospace}
+.pipe-label{font-size:11px;font-weight:600;color:var(--ink);line-height:1.3}
+.pipe-sub{font-size:10px;color:var(--ink3);margin-top:3px}
+
+/* ── KPI TARGETS ── */
+.kpi-targets{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:900px;margin:0 auto}
+.kt-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center}
+.kt-val{font-size:28px;font-weight:800;color:var(--orange);font-family:'SF Mono',ui-monospace,monospace}
+.kt-label{font-size:11px;color:var(--ink2);margin-top:5px;line-height:1.4}
+
+/* ── TECH STACK ── */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;max-width:900px;margin:0 auto}
+.tech-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px}
+.tech-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.tech-name{font-size:12px;font-weight:700;color:var(--ink)}
+.tech-role{font-size:10.5px;color:var(--ink3);margin-top:1px}
+
+/* ── FOOTER ── */
+footer{background:var(--navy);padding:32px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.footer-logo{display:flex;align-items:center;gap:8px}
+.footer-mark{width:26px;height:26px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff}
+.footer-name{color:rgba(255,255,255,0.6);font-size:12px}
+.footer-links{display:flex;gap:16px}
+.footer-links a{color:rgba(255,255,255,0.4);font-size:11px;text-decoration:none}
+.footer-links a:hover{color:rgba(255,255,255,0.7)}
+
+@media(max-width:720px){
+  .hero h1{font-size:28px}
+  .hero{padding:48px 20px 56px}
+  .hero-stats{flex-wrap:wrap}
+  .hs{padding:16px;border-right:none;border-bottom:1px solid rgba(255,255,255,0.08)}
+  .section{padding:40px 20px}
+  .problem-grid,.kpi-targets{grid-template-columns:1fr 1fr}
+  .pipeline{gap:4px}
+  nav{padding:0 16px}
+  footer{padding:24px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-mark">EXL</div>
+    <div class="nav-name">EXL Service · Analytics & AI</div>
+  </div>
+  <div class="nav-links">
+    <a class="nav-btn outline" href="dashboard.html">📊 Dashboard</a>
+    <a class="nav-btn solid" href="demo.html">🤖 Live Demo</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow"><div class="hero-dot"></div>Case Study · Motor Insurance</div>
+  <h1>Accelerating <span>Quote-to-Policy</span><br>Conversion with AI</h1>
+  <p class="hero-sub">A data-driven solution combining a dimensional warehouse, BI dashboards, and a live multi-agent AI pipeline to reduce abandonment and drive policy conversion.</p>
+  <div class="hero-btns">
+    <a class="hero-btn primary" href="dashboard.html">📊 View Live Dashboard</a>
+    <a class="hero-btn secondary" href="demo.html">🤖 Run Agentic Demo</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hs"><div class="hs-val">97,655</div><div class="hs-label">Customer Records</div></div>
+    <div class="hs"><div class="hs-val">8</div><div class="hs-label">BI Dashboards</div></div>
+    <div class="hs"><div class="hs-val">9</div><div class="hs-label">AI Agents</div></div>
+    <div class="hs"><div class="hs-val">+10%</div><div class="hs-label">Target Conversion Uplift</div></div>
+  </div>
+</div>
+
+<!-- DELIVERABLES -->
+<div class="section alt" style="text-align:center">
+  <div class="section-tag">Deliverables</div>
+  <div class="section-title" style="margin:0 auto 10px">Two live, interactive tools</div>
+  <div class="section-sub" style="margin:0 auto 40px">Both run in the browser — no installs, no logins.</div>
+  <div class="cards">
+
+    <a class="product-card" href="dashboard.html">
+      <div class="pc-banner dashboard">
+        <div class="pc-banner-grid"></div>
+        <div class="pc-banner-icon">📊</div>
+      </div>
+      <div class="pc-body">
+        <span class="pc-tag bi">Business Intelligence</span>
+        <div class="pc-title">Quote-to-Policy Intelligence Dashboard</div>
+        <div class="pc-desc">8-tab interactive dashboard covering Executive KPIs, Sales & Conversion, Customer Journey, Customer 360, Underwriting, Claims, AI Monitoring, and ROI Recommendations. Auto-loads real Gold layer data from the warehouse.</div>
+      </div>
+      <div class="pc-footer">
+        <a class="pc-link" href="dashboard.html">Open Dashboard →</a>
+        <div class="pc-pills">
+          <span class="pc-pill">Chart.js</span>
+          <span class="pc-pill">Live CSV</span>
+          <span class="pc-pill">8 tabs</span>
+        </div>
+      </div>
+    </a>
+
+    <a class="product-card" href="demo.html">
+      <div class="pc-banner demo">
+        <div class="pc-banner-grid"></div>
+        <div class="pc-banner-icon">🤖</div>
+      </div>
+      <div class="pc-body">
+        <span class="pc-tag ai">Agentic AI</span>
+        <div class="pc-title">Agentic Conversion Intelligence Platform</div>
+        <div class="pc-desc">9-agent live pipeline that monitors abandoned quotes, predicts abandonment risk, diagnoses root cause, runs underwriting auto-pilot, and sends personalised WhatsApp outreach — all powered by Claude AI in real time.</div>
+      </div>
+      <div class="pc-footer">
+        <a class="pc-link" href="demo.html">Launch Demo →</a>
+        <div class="pc-pills">
+          <span class="pc-pill">Claude AI</span>
+          <span class="pc-pill">9 Agents</span>
+          <span class="pc-pill">Live API</span>
+        </div>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<div class="section" style="text-align:center">
+  <div class="section-tag">The Problem</div>
+  <div class="section-title" style="margin:0 auto 10px">Where quotes die before becoming policies</div>
+  <div class="section-sub" style="margin:0 auto 36px">Motor insurers lose a significant share of quotes across four friction points before a policy is ever issued.</div>
+  <div class="problem-grid">
+    <div class="prob-card">
+      <div class="prob-icon">💸</div>
+      <div class="prob-title">Price Sensitivity</div>
+      <div class="prob-desc">38% of abandonments cite premium too high vs. peer segment. Aggregator comparison happens in real time.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-icon">📄</div>
+      <div class="prob-title">Document Friction</div>
+      <div class="prob-desc">24% drop off at document upload. RC book file size limits and unclear licence scans are the top causes.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-icon">⏳</div>
+      <div class="prob-title">Underwriting Delays</div>
+      <div class="prob-desc">Manual review takes 28+ minutes on average. 12.4% of cases breach the 48-hour SLA, leading to lapse.</div>
+    </div>
+    <div class="prob-card">
+      <div class="prob-icon">📡</div>
+      <div class="prob-title">Channel Drop-off</div>
+      <div class="prob-desc">Aggregator-sourced quotes convert at 8.4% vs 18.2% direct. No re-engagement after hand-off.</div>
+    </div>
+  </div>
+</div>
+
+<!-- PIPELINE -->
+<div class="section alt" style="text-align:center">
+  <div class="section-tag">Solution Architecture</div>
+  <div class="section-title" style="margin:0 auto 10px">9 agents, one orchestrated pipeline</div>
+  <div class="section-sub" style="margin:0 auto 36px">Each agent runs in sequence, sharing context — from abandoned quote detection to live policy issuance.</div>
+  <div class="pipeline">
+    <div class="pipe-step"><div class="pipe-num">1</div><div class="pipe-label">Journey Monitor</div><div class="pipe-sub">Detect abandonment</div></div>
+    <div class="pipe-step"><div class="pipe-num">2</div><div class="pipe-label">Propensity Agent</div><div class="pipe-sub">Conversion score</div></div>
+    <div class="pipe-step"><div class="pipe-num">3</div><div class="pipe-label">Root Cause</div><div class="pipe-sub">Why did they drop?</div></div>
+    <div class="pipe-step"><div class="pipe-num">4</div><div class="pipe-label">UW Auto-Pilot</div><div class="pipe-sub">STP or telematics</div></div>
+    <div class="pipe-step"><div class="pipe-num">5</div><div class="pipe-label">Engagement</div><div class="pipe-sub">WhatsApp outreach</div></div>
+    <div class="pipe-step"><div class="pipe-num">6</div><div class="pipe-label">Next Best Action</div><div class="pipe-sub">Sales priorities</div></div>
+    <div class="pipe-step"><div class="pipe-num">7</div><div class="pipe-label">Customer 360</div><div class="pipe-sub">LTV & cross-sell</div></div>
+    <div class="pipe-step"><div class="pipe-num">8</div><div class="pipe-label">Sales Copilot</div><div class="pipe-sub">Advisor assist</div></div>
+    <div class="pipe-step"><div class="pipe-num">9</div><div class="pipe-label">Policy Issuance</div><div class="pipe-sub">Instant dispatch</div></div>
+  </div>
+</div>
+
+<!-- KPI TARGETS -->
+<div class="section" style="text-align:center">
+  <div class="section-tag">Target Outcomes</div>
+  <div class="section-title" style="margin:0 auto 10px">Four measurable KPI improvements</div>
+  <div class="section-sub" style="margin:0 auto 36px">Derived from real Gold layer data. ROI calculator available in the Recommendations dashboard tab.</div>
+  <div class="kpi-targets">
+    <div class="kt-card"><div class="kt-val">+10%</div><div class="kt-label">Quote-to-policy conversion rate</div></div>
+    <div class="kt-card"><div class="kt-val">−20%</div><div class="kt-label">Quote abandonment rate</div></div>
+    <div class="kt-card"><div class="kt-val">−25%</div><div class="kt-label">Policy issuance turnaround time</div></div>
+    <div class="kt-card"><div class="kt-val">−20%</div><div class="kt-label">Manual underwriting effort</div></div>
+  </div>
+</div>
+
+<!-- TECH STACK -->
+<div class="section alt" style="text-align:center">
+  <div class="section-tag">Tech Stack</div>
+  <div class="section-title" style="margin:0 auto 10px">Built end-to-end</div>
+  <div class="section-sub" style="margin:0 auto 36px">From raw Kaggle CSVs to a live AI pipeline in a single repo.</div>
+  <div class="tech-grid">
+    <div class="tech-card"><div class="tech-icon" style="background:#E8EFF5">🦆</div><div><div class="tech-name">DuckDB</div><div class="tech-role">Bronze → Silver ingestion</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#FDE8DA">🐍</div><div><div class="tech-name">Python / Pandas</div><div class="tech-role">Silver → Gold transforms</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#E8EFF5">⭐</div><div><div class="tech-name">Star Schema</div><div class="tech-role">5 dims · 5 facts · 6 marts</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#FDE8DA">📊</div><div><div class="tech-name">Chart.js</div><div class="tech-role">8-tab BI dashboard</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#EDE9FE">🤖</div><div><div class="tech-name">Claude AI</div><div class="tech-role">9-agent pipeline</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#DCFCE7">💬</div><div><div class="tech-name">WhatsApp Sim</div><div class="tech-role">Live customer outreach</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#E8EFF5">🐙</div><div><div class="tech-name">GitHub Pages</div><div class="tech-role">Zero-config hosting</div></div></div>
+    <div class="tech-card"><div class="tech-icon" style="background:#FDE8DA">📓</div><div><div class="tech-name">Jupyter</div><div class="tech-role">4 pipeline notebooks</div></div></div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">
+    <div class="footer-mark">EXL</div>
+    <div class="footer-name">EXL Service · Analytics & AI · Motor Insurance Case Study</div>
+  </div>
+  <div class="footer-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="demo.html">Live Demo</a>
+    <a href="https://github.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion" target="_blank">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
