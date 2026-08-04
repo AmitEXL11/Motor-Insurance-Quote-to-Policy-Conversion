@@ -818,15 +818,80 @@ const modelScores=[78.4, 88.6, 92.1];
 const tokenTrend=smooth(aiDates.map(()=>rndInt(180000,420000)));
 
 /* ══════════════════════════════════════════════════════
-   CSV LOADER
+   AUTO-FETCH FROM GITHUB — no manual upload needed
+   Falls back to demo data if fetch fails (local / offline)
 ══════════════════════════════════════════════════════ */
+const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/backend/data/gold';
+
+const REMOTE_FILES = {
+  exec:    REPO_BASE + '/data_marts/executive_dashboard.csv',
+  sales:   REPO_BASE + '/data_marts/sales_dashboard.csv',
+  uw:      REPO_BASE + '/data_marts/underwriting_dashboard.csv',
+  claims:  REPO_BASE + '/data_marts/claims_dashboard.csv',
+  ai:      REPO_BASE + '/data_marts/ai_monitoring_dashboard.csv',
+  c360:    REPO_BASE + '/data_marts/customer360_dashboard.csv',
+  journey: REPO_BASE + '/facts/fact_customer_journey.csv',
+};
+
+function parseCSVText(text){
+  const result = Papa.parse(text, {header:true, dynamicTyping:true, skipEmptyLines:true});
+  return result.data;
+}
+
+function setDotLoaded(key){ 
+  const el = document.getElementById('dot-'+key);
+  if(el) el.classList.add('loaded');
+}
+
+function updateDataBadge(){
+  const loaded = Object.keys(DATA.uploaded).length;
+  const badge = document.getElementById('dataModeBadge');
+  if(loaded === Object.keys(REMOTE_FILES).length){
+    badge.textContent = 'LIVE DATA'; badge.style.background='rgba(22,163,74,0.2)'; badge.style.color='#4ADE80'; badge.style.borderColor='rgba(22,163,74,0.3)';
+  } else if(loaded > 0){
+    badge.textContent = 'LIVE DATA ('+loaded+'/'+Object.keys(REMOTE_FILES).length+' files)';
+    badge.style.background='rgba(217,119,6,0.2)'; badge.style.color='#FCD34D'; badge.style.borderColor='rgba(217,119,6,0.3)';
+  }
+}
+
+async function fetchOneCSV(key, url){
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const rows = parseCSVText(text);
+    if(rows.length > 0){
+      DATA.uploaded[key] = rows;
+      setDotLoaded(key);
+      updateDataBadge();
+      return true;
+    }
+  } catch(e){
+    console.warn('Could not fetch', key, '—', e.message, '— using demo data');
+  }
+  return false;
+}
+
+async function autoFetchAllCSVs(){
+  setLoadingState(true);
+  const fetches = Object.entries(REMOTE_FILES).map(([key,url]) => fetchOneCSV(key, url));
+  await Promise.all(fetches);
+  setLoadingState(false);
+  refreshAllCharts();
+}
+
+function setLoadingState(loading){
+  const badge = document.getElementById('dataModeBadge');
+  if(loading){ badge.textContent = 'LOADING…'; badge.style.background='rgba(56,189,248,0.15)'; badge.style.color='#38BDF8'; badge.style.borderColor='rgba(56,189,248,0.25)'; }
+}
+
+/* Manual upload still works as fallback */
 function loadCSV(evt, key){
   const file=evt.target.files[0]; if(!file) return;
-  Papa.parse(file,{header:true,dynamicTyping:true,complete:r=>{
-    DATA.uploaded[key]=r.data.filter(row=>Object.values(row).some(v=>v!=null&&v!==''));
-    document.getElementById('dot-'+key).classList.add('loaded');
-    const loaded=Object.keys(DATA.uploaded).length;
-    if(loaded>0) document.getElementById('dataModeBadge').textContent='LIVE DATA ('+loaded+' files)';
+  Papa.parse(file,{header:true,dynamicTyping:true,skipEmptyLines:true,complete:r=>{
+    DATA.uploaded[key]=r.data;
+    setDotLoaded(key);
+    updateDataBadge();
     refreshAllCharts();
   }});
 }
@@ -1265,9 +1330,385 @@ function refreshAllCharts(){
 }
 
 /* ══════════════════════════════════════════════════════
-   INIT
+   REAL DATA EXTRACTORS
+   Each function tries DATA.uploaded first, falls back to synthetic
 ══════════════════════════════════════════════════════ */
-window.addEventListener('DOMContentLoaded',()=>{ renderExec(); rendered.add('exec'); });
+
+function col(rows, key){ return rows.map(r=>r[key]).filter(v=>v!=null&&v!==''&&!isNaN(v)).map(Number); }
+function colStr(rows, key){ return rows.map(r=>String(r[key]||'').trim()).filter(Boolean); }
+function colUnique(rows, key){ return [...new Set(colStr(rows,key))]; }
+function groupSum(rows, groupKey, valKey){
+  const m={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null) m[g]=(m[g]||0)+(Number(r[valKey])||0); }); return m;
+}
+function groupAvg(rows, groupKey, valKey){
+  const m={}; const c={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null){ m[g]=(m[g]||0)+(Number(r[valKey])||0); c[g]=(c[g]||0)+1; }}); 
+  const out={}; Object.keys(m).forEach(k=>out[k]=m[k]/c[k]); return out;
+}
+function groupCount(rows, groupKey){
+  const m={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null) m[g]=(m[g]||0)+1; }); return m;
+}
+function convRateByGroup(rows, groupKey){
+  const tot=groupCount(rows,groupKey);
+  const conv=groupCount(rows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1'||r.conversion_flag===true),groupKey);
+  const out={}; Object.keys(tot).forEach(k=>out[k]=+((100*(conv[k]||0)/tot[k]).toFixed(1))); return out;
+}
+function byDate(rows, dateKey, valKey, agg='sum'){
+  const m={}; const c={};
+  rows.forEach(r=>{ const d=String(r[dateKey]||'').slice(0,10); if(!d||d==='') return; m[d]=(m[d]||0)+(Number(r[valKey])||0); c[d]=(c[d]||0)+1; });
+  if(agg==='avg') Object.keys(m).forEach(k=>m[k]=m[k]/c[k]);
+  return m;
+}
+function sortedDateMap(m, maxPts=30){
+  const keys=Object.keys(m).sort(); const step=Math.max(1,Math.floor(keys.length/maxPts));
+  const sk=keys.filter((_,i)=>i%step===0); return {dates:sk, vals:sk.map(k=>+m[k].toFixed(2))};
+}
+
+/* ══════════════════════════════════════════════════════
+   OVERRIDE RENDER FUNCTIONS WITH REAL DATA WHEN AVAILABLE
+══════════════════════════════════════════════════════ */
+
+const _renderExecOrig = renderExec;
+function renderExec(){
+  const rows = DATA.uploaded.exec;
+  if(!rows||!rows.length){ _renderExecOrig(); return; }
+
+  const totalQuotes   = sum(col(rows,'quote_volume'));
+  const totalPolicies = sum(col(rows,'policies_issued'));
+  const avgConv       = +(avg(col(rows,'conversion_rate'))).toFixed(1);
+  const totalPremium  = sum(col(rows,'premium_collected'));
+  const totalClaims   = sum(col(rows,'claims_paid'));
+  const claimRatio    = +(avg(col(rows,'claim_ratio'))).toFixed(1);
+  const avgManual     = +(avg(col(rows,'manual_underwriting_pct'))).toFixed(0);
+  const avgSat        = +(avg(col(rows,'customer_satisfaction'))).toFixed(1);
+  const avgJT         = +(avg(col(rows,'average_journey_time'))).toFixed(0);
+
+  document.getElementById('exec-kpis').innerHTML=[
+    kpiCard('Quote Volume',totalQuotes.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Policies Issued',totalPolicies.toLocaleString('en-IN'),'green','Target: +10%','neu'),
+    kpiCard('Conversion Rate',avgConv+'%','orange',avgConv>=21?'▲ Target met':'▼ Target: 21.8%',avgConv>=21?'up':'dn'),
+    kpiCard('Abandonment Rate',(100-avgConv).toFixed(1)+'%','red','',''),
+    kpiCard('Premium Collected',fmt(totalPremium),'navy','premium × (1+adj%)','neu'),
+    kpiCard('Claims Paid',fmt(totalClaims),'','',''),
+    kpiCard('Claim Ratio',claimRatio+'%',claimRatio<45?'green':'red','',''),
+    kpiCard('Manual UW %',avgManual+'%',avgManual<35?'green':'amber','Target: -20%','neu'),
+    kpiCard('Cust. Satisfaction',avgSat+'/5','green','',''),
+    kpiCard('Avg Journey (hrs)',avgJT+'h',avgJT<60?'green':'amber','Target: -25% TAT','neu'),
+  ].join('');
+
+  const qt=sortedDateMap(byDate(rows,'date','quote_volume'));
+  const pi=sortedDateMap(byDate(rows,'date','policies_issued'));
+  lineChart('ch-quoteTrend',qt.dates,[{label:'Quotes',data:qt.vals,color:C.navy},{label:'Policies Issued',data:pi.vals,color:C.orange}]);
+
+  const cr=sortedDateMap(byDate(rows,'date','conversion_rate','avg'));
+  lineChart('ch-convTrend',cr.dates,[
+    {label:'Conversion %',data:cr.vals,color:C.green},
+    {label:'Abandonment %',data:cr.vals.map(v=>+(100-v).toFixed(1)),color:C.red}],{y:{max:100,min:0}});
+
+  const pr=sortedDateMap(byDate(rows,'date','premium_collected'));
+  const cl=sortedDateMap(byDate(rows,'date','claims_paid'));
+  lineChart('ch-revTrend',pr.dates,[{label:'Premium',data:pr.vals,color:C.navy},{label:'Claims',data:cl.vals,color:C.red}]);
+
+  const mu=sortedDateMap(byDate(rows,'date','manual_underwriting_pct','avg'));
+  const ai=sortedDateMap(byDate(rows,'date','ai_usage','avg'));
+  lineChart('ch-manualTrend',mu.dates,[{label:'Manual UW %',data:mu.vals,color:C.amber},{label:'AI Usage %',data:ai.vals,color:C.green}],{y:{max:100,min:0}});
+
+  // Funnel from journey data if available
+  const jr = DATA.uploaded.journey;
+  if(jr&&jr.length){
+    const stages=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+    const stageCounts=stages.map(s=>jr.filter(r=>r.stage_name===s&&(r.completed_flag==1||r.completed_flag==='1'||r.completed_flag===true)).length||jr.filter(r=>r.stage_name===s).length);
+    const nonZero=stageCounts.some(v=>v>0);
+    funnel('exec-funnel',stages,nonZero?stageCounts:[totalQuotes,Math.round(totalQuotes*.74),Math.round(totalQuotes*.49),Math.round(totalQuotes*.39),Math.round(totalQuotes*.17),totalPolicies],[C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+  } else {
+    funnel('exec-funnel',['Quote Generated','Proposal Started','Docs Uploaded','Underwriting','Payment','Policy Issued'],[totalQuotes,Math.round(totalQuotes*.74),Math.round(totalQuotes*.49),Math.round(totalQuotes*.39),Math.round(totalQuotes*.17),totalPolicies],[C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+  }
+
+  const targets=[
+    {kpi:'Conversion Rate',curr:avgConv+'%',target:'21.8%',gap:(21.8-avgConv).toFixed(1)+'pp',status:avgConv>=21.8?'✓':'⚠'},
+    {kpi:'Abandonment Rate',curr:(100-avgConv).toFixed(1)+'%',target:'<78%',gap:'',status:'⚠'},
+    {kpi:'Manual UW %',curr:avgManual+'%',target:'<'+Math.round(avgManual*0.8)+'%',gap:'-20%',status:'⚠'},
+    {kpi:'Avg Journey Time',curr:avgJT+'h',target:'<'+Math.round(avgJT*0.75)+'h',gap:'-25%',status:'⚠'},
+    {kpi:'Claim Ratio',curr:claimRatio+'%',target:'<45%',gap:'',status:claimRatio<45?'✓':'⚠'}
+  ];
+  document.getElementById('kpi-vs-target').innerHTML=`<table class="matrix-table"><thead><tr><th>KPI</th><th>Current</th><th>Target</th><th>Gap</th><th>Status</th></tr></thead><tbody>${targets.map(t=>`<tr><td>${t.kpi}</td><td>${t.curr}</td><td>${t.target}</td><td>${t.gap}</td><td>${t.status==='✓'?'<span class="tag green">On Track</span>':'<span class="tag orange">Action Needed</span>'}</td></tr>`).join('')}</tbody></table>`;
+}
+
+const _renderSalesOrig = renderSales;
+function renderSales(){
+  const rows = DATA.uploaded.sales;
+  if(!rows||!rows.length){ _renderSalesOrig(); return; }
+
+  const totalQ = rows.length;
+  const convRows = rows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1');
+  const avgConv = +(100*convRows.length/totalQ).toFixed(1);
+  const avgPrem = +(avg(col(rows,'quoted_premium'))).toFixed(0);
+
+  document.getElementById('sales-kpis').innerHTML=[
+    kpiCard('Total Quotes',totalQ.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Avg Conversion',avgConv+'%','orange','',''),
+    kpiCard('Avg Premium',fmtRs(avgPrem),'','',''),
+    kpiCard('High Value Quotes',col(rows,'high_value_quote').filter(v=>v==1).length.toLocaleString('en-IN'),'purple','',''),
+    kpiCard('Avg Days Since Contact',+(avg(col(rows,'days_since_last_contact'))).toFixed(1)+'d','','',''),
+  ].join('');
+
+  // Channel conversion
+  const chConvMap = convRateByGroup(rows,'channel_name');
+  const chKeys = Object.keys(chConvMap);
+  barChart('ch-byChannel',chKeys,[{label:'Conversion %',data:chKeys.map(k=>chConvMap[k]),color:chKeys.map((_,i)=>PALETTE[i])}]);
+
+  // Region
+  const rgConvMap = convRateByGroup(rows,'region');
+  const rgKeys = Object.keys(rgConvMap).slice(0,10);
+  barChart('ch-byRegion',rgKeys,[{label:'Conversion %',data:rgKeys.map(k=>rgConvMap[k]),color:C.navy}]);
+
+  // Age band
+  const ageConvMap = convRateByGroup(rows,'age_band');
+  const ageKeys = Object.keys(ageConvMap);
+  barChart('ch-byAge',ageKeys,[{label:'Conversion %',data:ageKeys.map(k=>ageConvMap[k]),color:C.orange}]);
+
+  // Device
+  const devConvMap = convRateByGroup(rows,'device_type');
+  const devKeys = Object.keys(devConvMap);
+  barChart('ch-byDevice',devKeys,[{label:'Conversion %',data:devKeys.map(k=>devConvMap[k]),color:C.purple}]);
+
+  // Premium distribution — bucket quoted_premium
+  const prems = col(rows,'quoted_premium').filter(v=>v>0);
+  const bins=['<3K','3-5K','5-8K','8-12K','12-20K','>20K'];
+  const binCounts=[prems.filter(v=>v<3000).length,prems.filter(v=>v>=3000&&v<5000).length,prems.filter(v=>v>=5000&&v<8000).length,prems.filter(v=>v>=8000&&v<12000).length,prems.filter(v=>v>=12000&&v<20000).length,prems.filter(v=>v>=20000).length];
+  histChart('ch-premDist',bins,binCounts,C.navy);
+
+  // Quote source
+  const srcConvMap = convRateByGroup(rows,'quote_source');
+  const srcKeys = Object.keys(srcConvMap);
+  barChart('ch-bySource',srcKeys,[{label:'Conversion %',data:srcKeys.map(k=>srcConvMap[k]),color:C.green}]);
+
+  // Gender
+  const genConvMap = convRateByGroup(rows,'gender');
+  const genKeys = Object.keys(genConvMap);
+  pieChart('ch-byGender',genKeys,genKeys.map(k=>genConvMap[k]));
+
+  // Funnel
+  const stages=['Quote Generated','Proposal Form','Documents','UW Review','Payment','Issued'];
+  const stageCounts=rows.length ? [rows.length,...['Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'].map(s=>Math.round(rows.length*[.74,.49,.39,.17,.115][['Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'].indexOf(s)]))] : channelVol.map(()=>0);
+  funnel('sales-funnel',stages,stageCounts);
+
+  // Heatmap
+  const hmEl=document.getElementById('ch-heatmap');
+  const chs=chKeys.slice(0,4); const rgs=rgKeys.slice(0,5);
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:70px repeat(${rgs.length},1fr)">`;
+  hmHtml+=`<div class="hm-header"></div>${rgs.map(r=>`<div class="hm-header">${r}</div>`).join('')}`;
+  chs.forEach(ch=>{
+    const chRows=rows.filter(r=>r.channel_name===ch);
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${ch}</div>`;
+    rgs.forEach(rg=>{
+      const rgRows=chRows.filter(r=>r.region===rg);
+      const v=rgRows.length?+(100*rgRows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1').length/rgRows.length).toFixed(1):0;
+      const intensity=Math.round(v/25*100);
+      const bg=`rgba(0,48,87,${0.1+Math.min(intensity,100)/100*0.65})`;
+      const col2=intensity>55?'#fff':'#003057';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col2}">${v}%</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+const _renderUWOrig = renderUW;
+function renderUW(){
+  const rows = DATA.uploaded.uw;
+  if(!rows||!rows.length){ _renderUWOrig(); return; }
+
+  const avgReview = +(avg(col(rows,'review_time_minutes'))).toFixed(1);
+  const stpRate   = +(100*col(rows,'stp_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+  const manualPct = +(100*col(rows,'manual_review_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+  const approvalPct = +(100*rows.filter(r=>/approv/i.test(r.underwriting_decision||'')).length/rows.length).toFixed(1);
+  const fraudPct  = +(100*col(rows,'fraud_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+  const slaPct    = +(100*col(rows,'sla_breached_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+
+  document.getElementById('uw-kpis').innerHTML=[
+    kpiCard('Avg Review Time',avgReview+' min','orange','Target: -25%','neu'),
+    kpiCard('STP Rate',stpRate+'%','green','Straight-through','up'),
+    kpiCard('Manual Review %',manualPct+'%','amber','Target: <30%','neu'),
+    kpiCard('Approval Rate',approvalPct+'%','green','',''),
+    kpiCard('Fraud Flag Rate',fraudPct+'%','red','',''),
+    kpiCard('SLA Breach Rate',slaPct+'%',slaPct>10?'red':'green','',''),
+  ].join('');
+
+  // Risk score histogram
+  const rScores = col(rows,'risk_score');
+  const rBins=['0-20','21-40','41-60','61-80','81-100'];
+  const rCounts=[rScores.filter(v=>v<=20).length,rScores.filter(v=>v>20&&v<=40).length,rScores.filter(v=>v>40&&v<=60).length,rScores.filter(v=>v>60&&v<=80).length,rScores.filter(v=>v>80).length];
+  histChart('ch-riskScore',rBins,rCounts,C.navy);
+
+  // Decision breakdown
+  const decMap = groupCount(rows,'underwriting_decision');
+  const decKeys = Object.keys(decMap);
+  pieChart('ch-uwDecision',decKeys,decKeys.map(k=>decMap[k]));
+
+  // Manual review trend
+  const uwDates=sortedDateMap(byDate(rows,'underwriting_date_sk','manual_review_flag','avg'),20);
+  lineChart('ch-manualTrend2',uwDates.dates,[{label:'Manual Review %',data:uwDates.vals.map(v=>+(v*100).toFixed(1)),color:C.amber}],{y:{max:80,min:0}});
+
+  // AI vs Final matrix
+  const aiRecs = colUnique(rows,'recommendation'); const finals = colUnique(rows,'underwriting_decision');
+  const matData={};
+  rows.forEach(r=>{ const a=r.recommendation; const f=r.underwriting_decision; if(a&&f){ if(!matData[a])matData[a]={}; matData[a][f]=(matData[a][f]||0)+1; }});
+  let matHtml=`<table class="matrix-table" style="margin-top:8px"><thead><tr><th>AI Rec ↓ / Final →</th>${finals.map(f=>`<th>${f}</th>`).join('')}</tr></thead><tbody>`;
+  aiRecs.forEach(a=>{
+    matHtml+=`<tr><td style="font-weight:700">${a}</td>`;
+    finals.forEach(f=>{ const v=(matData[a]||{})[f]||0; const override=a!==f&&v>0; matHtml+=`<td>${v>0?`<span class="cell-heat" style="background:${override?'var(--amber2)':'var(--green2)'};color:${override?'var(--amber)':'var(--green)'}">${v.toLocaleString('en-IN')}</span>`:'-'}</td>`; });
+    matHtml+='</tr>';
+  });
+  const totalOverrides=rows.filter(r=>r.recommendation&&r.underwriting_decision&&r.recommendation!==r.underwriting_decision).length;
+  matHtml+=`<tr><td colspan="${finals.length+1}" style="font-size:10px;color:var(--ink3);padding-top:8px">Override cases: ${totalOverrides.toLocaleString('en-IN')} (${+(100*totalOverrides/rows.length).toFixed(1)}%)</td></tr></tbody></table>`;
+  document.getElementById('uw-matrix').innerHTML=matHtml;
+
+  // Review time by underwriter
+  const uwMap=groupAvg(rows,'underwriter','review_time_minutes');
+  const uwKeys=Object.keys(uwMap).slice(0,8);
+  barChart('ch-uwByPerson',uwKeys,[{label:'Avg Review Time (min)',data:uwKeys.map(k=>+uwMap[k].toFixed(1)),color:C.navy}]);
+
+  // Fraud dist
+  const fp=col(rows,'fraud_probability');
+  const fBins=['0-0.2','0.2-0.4','0.4-0.6','0.6-0.8','0.8-1.0'];
+  const fCounts=[fp.filter(v=>v<=.2).length,fp.filter(v=>v>.2&&v<=.4).length,fp.filter(v=>v>.4&&v<=.6).length,fp.filter(v=>v>.6&&v<=.8).length,fp.filter(v=>v>.8).length];
+  histChart('ch-fraudDist',fBins,fCounts,C.red);
+
+  document.getElementById('uw-sla-gauge').innerHTML=`<div style="text-align:center;padding:12px 0">
+    <div style="font-size:36px;font-weight:800;font-family:var(--mono);color:${slaPct>10?'var(--red)':'var(--green)'}">${slaPct}%</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px">SLA Breached</div>
+    <div style="margin-top:10px;background:var(--${slaPct>10?'red':'green'}2);border-radius:8px;padding:8px 12px">
+      <div style="font-size:10px;color:var(--${slaPct>10?'red':'green'});font-weight:700">${slaPct>10?'⚠ Action Required':'✓ Within Target'}</div>
+      <div style="font-size:10px;color:var(--ink2);margin-top:2px">${Math.round(rows.length*slaPct/100)} cases breach 48-hr SLA</div>
+    </div>
+    <div style="margin-top:8px;background:var(--green2);border-radius:8px;padding:8px 12px">
+      <div style="font-size:10px;color:var(--green);font-weight:700">✓ STP Rate: ${stpRate}%</div>
+      <div style="font-size:10px;color:var(--ink2);margin-top:2px">Target: 60% · Gap: ${+(60-stpRate).toFixed(1)}pp</div>
+    </div>
+  </div>`;
+}
+
+const _renderClaimsOrig = renderClaims;
+function renderClaims(){
+  const rows = DATA.uploaded.claims;
+  if(!rows||!rows.length){ _renderClaimsOrig(); return; }
+
+  const totalClaims   = rows.length;
+  const totalAmt      = sum(col(rows,'claim_amount'));
+  const avgSettle     = +(avg(col(rows,'settlement_days'))).toFixed(1);
+  const fraudPct      = +(100*col(rows,'high_fraud').filter(v=>v==1).length/rows.length).toFixed(1);
+  const approvedPct   = +(100*col(rows,'claim_approved').filter(v=>v==1).length/rows.length).toFixed(1);
+
+  document.getElementById('claims-kpis').innerHTML=[
+    kpiCard('Total Claims',totalClaims.toLocaleString('en-IN'),'red','',''),
+    kpiCard('Claim Amount',fmt(totalAmt),'red','',''),
+    kpiCard('Avg Settlement',avgSettle+' days','','',''),
+    kpiCard('Fraud Flag %',fraudPct+'%','red','',''),
+    kpiCard('Claim Approval %',approvedPct+'%','green','',''),
+  ].join('');
+
+  const ct=sortedDateMap(byDate(rows,'claim_date','claim_amount'));
+  lineChart('ch-claimTrend',ct.dates,[{label:'Claim Amount (₹)',data:ct.vals,color:C.red,fill:'rgba(220,38,38,0.07)',extra:{fill:true}}]);
+
+  const sevMap=groupCount(rows,'claim_severity'); const sevKeys=Object.keys(sevMap);
+  pieChart('ch-claimSeverity',sevKeys,sevKeys.map(k=>sevMap[k]),[C.green,C.amber,C.orange,C.red]);
+
+  const sdMap=groupCount(rows,'settlement_band'); const sdKeys=Object.keys(sdMap);
+  histChart('ch-settlementDist',sdKeys,sdKeys.map(k=>sdMap[k]),C.navy);
+
+  const frMap=groupCount(rows,'fraud_risk'); const frKeys=Object.keys(frMap);
+  pieChart('ch-fraudRisk',frKeys,frKeys.map(k=>frMap[k]),[C.green,C.amber,C.orange,C.red]);
+
+  const segMap=groupCount(rows,'segment'); const segKeys=Object.keys(segMap).slice(0,8);
+  barChart('ch-segClaims',segKeys,[{label:'Claim Count',data:segKeys.map(k=>segMap[k]),color:C.navy}]);
+
+  const srMap=groupCount(rows,'safety_rating'); const srKeys=Object.keys(srMap);
+  barChart('ch-safetyVsClaims',srKeys,[{label:'Claim Count',data:srKeys.map(k=>srMap[k]),color:C.orange}]);
+
+  // Segment × Fuel heatmap
+  const segs=[...new Set(colStr(rows,'segment'))].slice(0,5);
+  const fuels=[...new Set(colStr(rows,'fuel_type'))].slice(0,4);
+  const hmEl=document.getElementById('claims-heatmap');
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:70px repeat(${fuels.length},1fr);margin-top:8px">`;
+  hmHtml+=`<div class="hm-header"></div>${fuels.map(f=>`<div class="hm-header">${f}</div>`).join('')}`;
+  segs.forEach(seg=>{
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${seg}</div>`;
+    fuels.forEach(fuel=>{
+      const v=rows.filter(r=>r.segment===seg&&r.fuel_type===fuel).length;
+      const maxV=rows.length/segs.length/fuels.length*2;
+      const intensity=Math.min(100,Math.round(v/maxV*100));
+      const bg=`rgba(220,38,38,${0.08+intensity/100*0.55})`;
+      const col2=intensity>55?'#fff':'#7f1d1d';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col2}">${v.toLocaleString('en-IN')}</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+const _renderAIOrig = renderAI;
+function renderAI(){
+  const rows = DATA.uploaded.ai;
+  if(!rows||!rows.length){ _renderAIOrig(); return; }
+
+  const totalSess  = rows.length;
+  const avgConf    = +(avg(col(rows,'confidence_score'))*100).toFixed(1);
+  const escalPct   = +(100*col(rows,'escalated_interaction').filter(v=>v==1).length/rows.length).toFixed(1);
+  const resolPct   = +(100*col(rows,'resolved_interaction').filter(v=>v==1).length/rows.length).toFixed(1);
+  const avgRating  = +(avg(col(rows,'customer_rating'))).toFixed(1);
+  const avgLatency = +(avg(col(rows,'response_time_ms'))).toFixed(0);
+  const totalTokens= sum(col(rows,'token_count'));
+
+  document.getElementById('ai-kpis').innerHTML=[
+    kpiCard('Total AI Sessions',totalSess.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Avg Confidence',avgConf+'%','green','',''),
+    kpiCard('Escalation Rate',escalPct+'%','amber','',''),
+    kpiCard('Resolution Rate',resolPct+'%','green','',''),
+    kpiCard('Avg Rating',avgRating+'/5','','',''),
+    kpiCard('Avg Latency',avgLatency+' ms','','',''),
+    kpiCard('Total Tokens',fmt(totalTokens),'purple','',''),
+  ].join('');
+
+  // Confidence bins
+  const cs=col(rows,'confidence_score');
+  const cBins=['0.55-0.65','0.65-0.75','0.75-0.85','0.85-0.95','0.95-0.99'];
+  const cCounts=[cs.filter(v=>v>=0.55&&v<0.65).length,cs.filter(v=>v>=0.65&&v<0.75).length,cs.filter(v=>v>=0.75&&v<0.85).length,cs.filter(v=>v>=0.85&&v<0.95).length,cs.filter(v=>v>=0.95).length];
+  histChart('ch-confDist',cBins,cCounts,C.green);
+
+  const qcMap=groupCount(rows,'question_category'); const qcKeys=Object.keys(qcMap);
+  pieChart('ch-qCategory',qcKeys,qcKeys.map(k=>qcMap[k]));
+
+  const escByQ=groupSum(rows,'question_category','escalated_interaction'); const escTot=groupCount(rows,'question_category');
+  barChart('ch-escalByCategory',qcKeys,[{label:'Escalation %',data:qcKeys.map(k=>+((100*(escByQ[k]||0)/(escTot[k]||1)).toFixed(1))),color:C.orange}]);
+
+  const rt=sortedDateMap(byDate(rows,'date_sk','response_time_ms','avg'),20);
+  lineChart('ch-respTimeTrend',rt.dates,[{label:'Avg Response Time (ms)',data:rt.vals,color:C.navy}]);
+
+  // Sentiment trend
+  const sentDatesMap={}; rows.forEach(r=>{ const d=String(r.date_sk||'').slice(0,10); if(!d) return; if(!sentDatesMap[d]) sentDatesMap[d]={pos:0,neu:0,neg:0,tot:0}; sentDatesMap[d].tot++; const s=(r.customer_sentiment||'').toLowerCase(); if(s==='positive')sentDatesMap[d].pos++; else if(s==='negative')sentDatesMap[d].neg++; else sentDatesMap[d].neu++; });
+  const sentKeys=Object.keys(sentDatesMap).sort(); const sentStep=Math.max(1,Math.floor(sentKeys.length/20)); const sk=sentKeys.filter((_,i)=>i%sentStep===0);
+  mkChart('ch-sentimentTrend',{type:'line',data:{labels:sk,datasets:[
+    {label:'Positive',data:sk.map(d=>+(100*sentDatesMap[d].pos/sentDatesMap[d].tot).toFixed(1)),borderColor:C.green,backgroundColor:'rgba(22,163,74,0.1)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Neutral',data:sk.map(d=>+(100*sentDatesMap[d].neu/sentDatesMap[d].tot).toFixed(1)),borderColor:C.amber,backgroundColor:'rgba(217,119,6,0.08)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Negative',data:sk.map(d=>+(100*sentDatesMap[d].neg/sentDatesMap[d].tot).toFixed(1)),borderColor:C.red,backgroundColor:'rgba(220,38,38,0.07)',tension:0.35,pointRadius:0,fill:true},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{grid:{display:false}},y:{grid:{color:'#EBF1F7'}}}}});
+
+  const mdMap=groupAvg(rows,'ai_model_version','ai_quality_score'); const mdKeys=Object.keys(mdMap);
+  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdKeys.map(k=>+(mdMap[k]*100).toFixed(1)),color:[C.navy,C.orange,C.purple]}]);
+
+  const tk=sortedDateMap(byDate(rows,'date_sk','token_count'),20);
+  lineChart('ch-tokenTrend',tk.dates,[{label:'Tokens Used',data:tk.vals,color:C.purple}]);
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT — auto-fetch on load, render exec immediately
+══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // Render with demo data immediately so page isn't blank
+  renderExec(); rendered.add('exec');
+  // Then fetch real data in background
+  await autoFetchAllCSVs();
+});
 </script>
 </body>
 </html>
