@@ -198,6 +198,16 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
   <div class="tab" onclick="showTab('reco')">Recommendations</div>
 </div>
 
+
+<!-- DEBUG PANEL -->
+<div id="debugPanel" style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:11px;padding:10px 20px;border-bottom:1px solid #334155;display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="color:#38bdf8;font-weight:700">DEBUG — Fetch & Parse Log</span>
+    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:11px">✕ close</button>
+  </div>
+  <div id="debugLog" style="display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto"></div>
+</div>
+
 <!-- BODY -->
 <div class="body">
 
@@ -838,20 +848,39 @@ function updateDataBadge(){
   renderStatusDots();
 }
 
+function dbg(msg, color){
+  const el=document.getElementById('debugLog'); if(!el) return;
+  const d=document.createElement('div');
+  d.style.color=color||'#94a3b8'; d.textContent='['+new Date().toLocaleTimeString()+'] '+msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+  console.log(msg);
+}
+
 async function fetchOneCSV(key, url){
+  dbg('Fetching: '+key+' → '+url.split('/').slice(-1)[0], '#38bdf8');
   try {
     const res = await fetch(url);
+    dbg(key+': HTTP '+res.status, res.ok?'#4ade80':'#f87171');
     if(!res.ok) throw new Error('HTTP '+res.status);
     const text = await res.text();
+    dbg(key+': '+text.length+' bytes received', '#94a3b8');
     const rows = parseCSVText(text);
+    dbg(key+': '+rows.length+' rows parsed, cols: '+Object.keys(rows[0]||{}).slice(0,5).join(', ')+'...', rows.length>0?'#4ade80':'#f87171');
     if(rows.length > 0){
       DATA.uploaded[key] = rows;
       setDotLoaded(key);
       updateDataBadge();
+      // try render immediately
+      try{
+        const renderFn={exec:renderExec,sales:renderSales,uw:renderUW,claims:renderClaims,ai:renderAI,c360:renderC360}[key];
+        if(renderFn){ rendered.delete(key); renderFn(); rendered.add(key); dbg(key+': rendered OK','#4ade80'); }
+      } catch(re){ dbg(key+' render ERROR: '+re.message,'#f87171'); }
       return true;
+    } else {
+      dbg(key+': 0 rows — staying on demo data','#fbbf24');
     }
   } catch(e){
-    console.warn('Could not fetch', key, '—', e.message, '— using demo data');
+    dbg(key+' fetch ERROR: '+e.message,'#f87171');
   }
   return false;
 }
@@ -1309,8 +1338,14 @@ function showTab(key){
 }
 
 function refreshAllCharts(){
+  // re-render all tabs that have been viewed
+  const wasRendered = new Set(rendered);
   rendered.clear();
-  showTab('exec');
+  // always re-render exec
+  renderExec(); rendered.add('exec');
+  // re-render any other tab already visited
+  wasRendered.forEach(k=>{ if(k!=='exec'){ const fn={sales:renderSales,journey:renderJourney,c360:renderC360,uw:renderUW,claims:renderClaims,ai:renderAI,reco:renderReco}[k]; if(fn){try{fn();rendered.add(k);}catch(e){dbg(k+' re-render error: '+e.message,'#f87171');}}}});
+  dbg('All charts refreshed with live data','#4ade80');
 }
 
 /* ══════════════════════════════════════════════════════
