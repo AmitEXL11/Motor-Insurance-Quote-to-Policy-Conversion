@@ -182,6 +182,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span class="demo-badge" id="dataModeBadge">DEMO DATA</span>
       <div id="fileStatusDots" style="display:flex;gap:6px;align-items:center"></div>
+      <button onclick="var p=document.getElementById('debugPanel');p.style.display=p.style.display==='none'?'block':'none'" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;font-family:monospace">DEBUG</button>
     </div>
   </div>
 </div>
@@ -200,7 +201,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
 
 
 <!-- DEBUG PANEL -->
-<div id="debugPanel" style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:11px;padding:10px 20px;border-bottom:1px solid #334155;display:none">
+<div id="debugPanel" style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:11px;padding:10px 20px;border-bottom:1px solid #334155;display:block">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
     <span style="color:#38bdf8;font-weight:700">DEBUG — Fetch & Parse Log</span>
     <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:11px">✕ close</button>
