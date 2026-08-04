@@ -796,7 +796,7 @@ const tokenTrend=smooth(aiDates.map(()=>rndInt(180000,420000)));
    AUTO-FETCH FROM GITHUB — no manual upload needed
    Falls back to demo data if fetch fails (local / offline)
 ══════════════════════════════════════════════════════ */
-const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/data/gold';
+const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/backend/data/gold';
 
 const REMOTE_FILES = {
   exec:    REPO_BASE + '/data_marts/executive_dashboard.csv',
@@ -1445,9 +1445,14 @@ function renderSales(){
   const rgKeys = Object.keys(rgConvMap).slice(0,10);
   barChart('ch-byRegion',rgKeys,[{label:'Conversion %',data:rgKeys.map(k=>rgConvMap[k]),color:C.navy}]);
 
-  // Age band
-  const ageConvMap = convRateByGroup(rows,'age_band');
-  const ageKeys = Object.keys(ageConvMap);
+  // Age band — bin customer_age since age_band not in sales mart
+  const ageBands=['18-25','26-35','36-45','46-55','56-65','66+'];
+  const ageBinRow = rows.map(r=>{
+    const a=Number(r.customer_age)||0;
+    return {...r, _age_band: a<=25?'18-25':a<=35?'26-35':a<=45?'36-45':a<=55?'46-55':a<=65?'56-65':'66+'};
+  });
+  const ageConvMap = convRateByGroup(ageBinRow,'_age_band');
+  const ageKeys = ageBands.filter(k=>ageConvMap[k]!=null);
   barChart('ch-byAge',ageKeys,[{label:'Conversion %',data:ageKeys.map(k=>ageConvMap[k]),color:C.orange}]);
 
   // Device
@@ -1471,10 +1476,17 @@ function renderSales(){
   const genKeys = Object.keys(genConvMap);
   pieChart('ch-byGender',genKeys,genKeys.map(k=>genConvMap[k]));
 
-  // Funnel
-  const stages=['Quote Generated','Proposal Form','Documents','UW Review','Payment','Issued'];
-  const stageCounts=rows.length ? [rows.length,...['Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'].map(s=>Math.round(rows.length*[.74,.49,.39,.17,.115][['Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'].indexOf(s)]))] : channelVol.map(()=>0);
-  funnel('sales-funnel',stages,stageCounts);
+  // Funnel — count rows at each quote_stage
+  const stageOrder=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+  const stageMap=groupCount(rows,'quote_stage');
+  const stageCounts=stageOrder.map(s=>stageMap[s]||0);
+  const hasStageData=stageCounts.some(v=>v>0);
+  if(hasStageData){
+    funnel('sales-funnel',stageOrder,stageCounts);
+  } else {
+    funnel('sales-funnel',['Quote Generated','Proposal Started','Docs Uploaded','UW Review','Payment','Issued'],
+      [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)]);
+  }
 
   // Heatmap
   const hmEl=document.getElementById('ch-heatmap');
@@ -1530,8 +1542,13 @@ function renderUW(){
   pieChart('ch-uwDecision',decKeys,decKeys.map(k=>decMap[k]));
 
   // Manual review trend
-  const uwDates=sortedDateMap(byDate(rows,'underwriting_date_sk','manual_review_flag','avg'),20);
-  lineChart('ch-manualTrend2',uwDates.dates,[{label:'Manual Review %',data:uwDates.vals.map(v=>+(v*100).toFixed(1)),color:C.amber}],{y:{max:80,min:0}});
+  // underwriting_date_sk is a numeric key — try to match to exec dates via index
+  const uwManualByDay={}; const uwDayCount={};
+  rows.forEach(r=>{ const sk=r.underwriting_date_sk; if(sk){ uwManualByDay[sk]=(uwManualByDay[sk]||0)+(Number(r.manual_review_flag)||0); uwDayCount[sk]=(uwDayCount[sk]||0)+1; }});
+  const uwSkKeys=Object.keys(uwManualByDay).sort((a,b)=>a-b);
+  const uwStep=Math.max(1,Math.floor(uwSkKeys.length/20));
+  const uwSk=uwSkKeys.filter((_,i)=>i%uwStep===0);
+  lineChart('ch-manualTrend2',uwSk.map(k=>'SK-'+k),[{label:'Manual Review %',data:uwSk.map(k=>+(100*uwManualByDay[k]/uwDayCount[k]).toFixed(1)),color:C.amber}],{y:{max:100,min:0}});
 
   // AI vs Final matrix
   const aiRecs = colUnique(rows,'recommendation'); const finals = colUnique(rows,'underwriting_decision');
@@ -1591,7 +1608,7 @@ function renderClaims(){
     kpiCard('Claim Approval %',approvedPct+'%','green','',''),
   ].join('');
 
-  const ct=sortedDateMap(byDate(rows,'claim_date','claim_amount'));
+  const ct=sortedDateMap(byDate(rows,'date','claim_amount'));
   lineChart('ch-claimTrend',ct.dates,[{label:'Claim Amount (₹)',data:ct.vals,color:C.red,fill:'rgba(220,38,38,0.07)',extra:{fill:true}}]);
 
   const sevMap=groupCount(rows,'claim_severity'); const sevKeys=Object.keys(sevMap);
@@ -1665,11 +1682,11 @@ function renderAI(){
   const escByQ=groupSum(rows,'question_category','escalated_interaction'); const escTot=groupCount(rows,'question_category');
   barChart('ch-escalByCategory',qcKeys,[{label:'Escalation %',data:qcKeys.map(k=>+((100*(escByQ[k]||0)/(escTot[k]||1)).toFixed(1))),color:C.orange}]);
 
-  const rt=sortedDateMap(byDate(rows,'date_sk','response_time_ms','avg'),20);
+  const rt=sortedDateMap(byDate(rows,'date','response_time_ms','avg'),20);
   lineChart('ch-respTimeTrend',rt.dates,[{label:'Avg Response Time (ms)',data:rt.vals,color:C.navy}]);
 
   // Sentiment trend
-  const sentDatesMap={}; rows.forEach(r=>{ const d=String(r.date_sk||'').slice(0,10); if(!d) return; if(!sentDatesMap[d]) sentDatesMap[d]={pos:0,neu:0,neg:0,tot:0}; sentDatesMap[d].tot++; const s=(r.customer_sentiment||'').toLowerCase(); if(s==='positive')sentDatesMap[d].pos++; else if(s==='negative')sentDatesMap[d].neg++; else sentDatesMap[d].neu++; });
+  const sentDatesMap={}; rows.forEach(r=>{ const d=String(r.date||'').slice(0,10); if(!d) return; if(!sentDatesMap[d]) sentDatesMap[d]={pos:0,neu:0,neg:0,tot:0}; sentDatesMap[d].tot++; const s=(r.customer_sentiment||'').toLowerCase(); if(s==='positive')sentDatesMap[d].pos++; else if(s==='negative')sentDatesMap[d].neg++; else sentDatesMap[d].neu++; });
   const sentKeys=Object.keys(sentDatesMap).sort(); const sentStep=Math.max(1,Math.floor(sentKeys.length/20)); const sk=sentKeys.filter((_,i)=>i%sentStep===0);
   mkChart('ch-sentimentTrend',{type:'line',data:{labels:sk,datasets:[
     {label:'Positive',data:sk.map(d=>+(100*sentDatesMap[d].pos/sentDatesMap[d].tot).toFixed(1)),borderColor:C.green,backgroundColor:'rgba(22,163,74,0.1)',tension:0.35,pointRadius:0,fill:true},
@@ -1678,9 +1695,10 @@ function renderAI(){
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{grid:{display:false}},y:{grid:{color:'#EBF1F7'}}}}});
 
   const mdMap=groupAvg(rows,'ai_model_version','ai_quality_score'); const mdKeys=Object.keys(mdMap);
-  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdKeys.map(k=>+(mdMap[k]*100).toFixed(1)),color:[C.navy,C.orange,C.purple]}]);
+  const mdVals=mdKeys.map(k=>mdMap[k]); const mdScale=mdVals.some(v=>v>1)?1:100;
+  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdVals.map(v=>+(v*mdScale).toFixed(1)),color:[C.navy,C.orange,C.purple]}]);
 
-  const tk=sortedDateMap(byDate(rows,'date_sk','token_count'),20);
+  const tk=sortedDateMap(byDate(rows,'date','token_count'),20);
   lineChart('ch-tokenTrend',tk.dates,[{label:'Tokens Used',data:tk.vals,color:C.purple}]);
 }
 
