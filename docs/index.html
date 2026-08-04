@@ -31,11 +31,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
 .hdr-title{color:#fff;font-size:13px;font-weight:600}
 .hdr-sub{color:rgba(255,255,255,0.4);font-size:10px;margin-top:1px}
 .hdr-right{display:flex;align-items:center;gap:10px}
-.upload-pill{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:4px 12px;font-size:11px;color:rgba(255,255,255,0.7);cursor:pointer;transition:background .15s}
-.upload-pill:hover{background:rgba(255,255,255,0.12)}
-.upload-pill input{display:none}
-.up-dot{width:7px;height:7px;border-radius:50%;background:#64748B}
-.up-dot.loaded{background:#4ADE80}
+/* upload pills removed — auto-fetch from GitHub */
 .demo-badge{background:rgba(242,101,34,0.2);border:1px solid rgba(242,101,34,0.3);border-radius:12px;padding:3px 10px;font-size:10px;font-weight:700;color:#FB923C;font-family:var(--mono);letter-spacing:.04em}
 
 /* ── TABS ── */
@@ -183,31 +179,10 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
     </div>
   </div>
   <div class="hdr-right">
-    <span class="demo-badge" id="dataModeBadge">DEMO DATA</span>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-exec"></div>executive_dashboard.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'exec')">
-    </label>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-sales"></div>sales_dashboard.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'sales')">
-    </label>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-uw"></div>underwriting.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'uw')">
-    </label>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-claims"></div>claims.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'claims')">
-    </label>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-ai"></div>ai_monitoring.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'ai')">
-    </label>
-    <label class="upload-pill">
-      <div class="up-dot" id="dot-c360"></div>customer360.csv
-      <input type="file" accept=".csv" onchange="loadCSV(event,'c360')">
-    </label>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="demo-badge" id="dataModeBadge">DEMO DATA</span>
+      <div id="fileStatusDots" style="display:flex;gap:6px;align-items:center"></div>
+    </div>
   </div>
 </div>
 
@@ -838,20 +813,29 @@ function parseCSVText(text){
   return result.data;
 }
 
-function setDotLoaded(key){ 
-  const el = document.getElementById('dot-'+key);
-  if(el) el.classList.add('loaded');
+const FILE_LABELS = {exec:'Executive',sales:'Sales',uw:'Underwriting',claims:'Claims',ai:'AI',c360:'C360',journey:'Journey'};
+
+function renderStatusDots(){
+  const wrap = document.getElementById('fileStatusDots');
+  if(!wrap) return;
+  wrap.innerHTML = Object.keys(REMOTE_FILES).map(key=>{
+    const loaded = !!DATA.uploaded[key];
+    return '<div style="display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,'+(loaded?'0.15':'0.07')+');border-radius:12px;padding:2px 8px"><div style="width:5px;height:5px;border-radius:50%;background:'+(loaded?'#4ADE80':'#64748B')+'"></div><span style="font-size:9.5px;color:'+(loaded?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.35)')+';font-family:var(--mono)">'+FILE_LABELS[key]+'</span></div>';
+  }).join('');
 }
+
+function setDotLoaded(key){ renderStatusDots(); }
 
 function updateDataBadge(){
   const loaded = Object.keys(DATA.uploaded).length;
-  const badge = document.getElementById('dataModeBadge');
-  if(loaded === Object.keys(REMOTE_FILES).length){
-    badge.textContent = 'LIVE DATA'; badge.style.background='rgba(22,163,74,0.2)'; badge.style.color='#4ADE80'; badge.style.borderColor='rgba(22,163,74,0.3)';
+  const total  = Object.keys(REMOTE_FILES).length;
+  const badge  = document.getElementById('dataModeBadge');
+  if(loaded === total){
+    badge.textContent='LIVE DATA'; badge.style.background='rgba(22,163,74,0.2)'; badge.style.color='#4ADE80'; badge.style.borderColor='rgba(22,163,74,0.3)';
   } else if(loaded > 0){
-    badge.textContent = 'LIVE DATA ('+loaded+'/'+Object.keys(REMOTE_FILES).length+' files)';
-    badge.style.background='rgba(217,119,6,0.2)'; badge.style.color='#FCD34D'; badge.style.borderColor='rgba(217,119,6,0.3)';
+    badge.textContent='LIVE ('+loaded+'/'+total+')'; badge.style.background='rgba(217,119,6,0.2)'; badge.style.color='#FCD34D'; badge.style.borderColor='rgba(217,119,6,0.3)';
   }
+  renderStatusDots();
 }
 
 async function fetchOneCSV(key, url){
