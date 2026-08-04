@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXL | Motor Insurance Quote-to-Policy Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+:root {
+  --navy:#003057; --navy2:#1A4A6B; --navy3:#E8EFF5; --navy4:#d0dde8;
+  --orange:#F26522; --orange2:#FDE8DA;
+  --ink:#1A2332; --ink2:#4A6080; --ink3:#8AA0B8;
+  --surface:#fff; --s1:#F5F8FA; --s2:#EBF1F7;
+  --line:#D4E0EA;
+  --green:#16A34A; --green2:#DCFCE7;
+  --amber:#D97706; --amber2:#FEF3C7;
+  --red:#DC2626; --red2:#FEE2E2;
+  --purple:#7C3AED; --purple2:#EDE9FE;
+  --mono:'SF Mono',ui-monospace,Consolas,monospace;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);color:var(--ink);display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+.hdr{background:var(--navy);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.07)}
+.hdr-logo{display:flex;align-items:center;gap:10px}
+.hdr-mark{width:30px;height:30px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff}
+.hdr-title{color:#fff;font-size:13px;font-weight:600}
+.hdr-sub{color:rgba(255,255,255,0.4);font-size:10px;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:10px}
+/* upload pills removed — auto-fetch from GitHub */
+.demo-badge{background:rgba(242,101,34,0.2);border:1px solid rgba(242,101,34,0.3);border-radius:12px;padding:3px 10px;font-size:10px;font-weight:700;color:#FB923C;font-family:var(--mono);letter-spacing:.04em}
+
+/* ── TABS ── */
+.tabs{background:var(--navy);padding:0 20px;display:flex;gap:0;flex-shrink:0;border-bottom:2px solid rgba(255,255,255,0.06)}
+.tab{padding:10px 16px;font-size:12px;font-weight:500;color:rgba(255,255,255,0.45);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;white-space:nowrap}
+.tab:hover{color:rgba(255,255,255,0.75)}
+.tab.active{color:#fff;border-bottom-color:var(--orange);font-weight:600}
+
+/* ── BODY ── */
+.body{flex:1;overflow-y:auto;padding:16px 20px 24px}
+
+/* ── SECTION STRUCTURE ── */
+.page{display:none}
+.page.active{display:block}
+.page-title{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--ink3);margin-bottom:16px}
+
+/* ── KPI STRIP ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.kc-label{font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;font-weight:600}
+.kc-val{font-size:22px;font-weight:800;font-family:var(--mono);color:var(--ink);line-height:1}
+.kc-val.green{color:var(--green)}
+.kc-val.orange{color:var(--orange)}
+.kc-val.red{color:var(--red)}
+.kc-val.purple{color:var(--purple)}
+.kc-delta{font-size:10px;margin-top:4px;font-family:var(--mono)}
+.kc-delta.up{color:var(--green)}
+.kc-delta.dn{color:var(--red)}
+.kc-delta.neu{color:var(--ink3)}
+
+/* ── CHART GRID ── */
+.chart-grid{display:grid;gap:12px;margin-bottom:14px}
+.cg-2{grid-template-columns:1fr 1fr}
+.cg-3{grid-template-columns:1fr 1fr 1fr}
+.cg-1{grid-template-columns:1fr}
+.cg-23{grid-template-columns:2fr 1fr}
+.cg-32{grid-template-columns:3fr 2fr}
+
+.chart-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.cc-title{font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.cc-sub{font-size:10px;color:var(--ink3);margin-bottom:10px}
+.chart-wrap{position:relative;height:200px}
+.chart-wrap.tall{height:260px}
+.chart-wrap.sm{height:160px}
+
+/* ── FUNNEL ── */
+.funnel-wrap{padding:8px 0}
+.funnel-step{margin-bottom:8px}
+.fs-label{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2);margin-bottom:3px}
+.fs-bar-outer{background:var(--s2);border-radius:4px;overflow:hidden;height:22px;position:relative}
+.fs-bar-inner{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:10px;font-weight:700;color:#fff;transition:width .6s ease;min-width:32px}
+.fs-drop{font-size:10px;color:var(--red);font-family:var(--mono);margin-top:2px}
+
+/* ── MATRIX TABLE ── */
+.matrix-table{width:100%;border-collapse:collapse;font-size:11px}
+.matrix-table th{background:var(--s1);padding:6px 10px;text-align:left;font-weight:600;color:var(--ink2);border-bottom:1px solid var(--line);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.matrix-table td{padding:6px 10px;border-bottom:1px solid var(--line2);color:var(--ink)}
+.matrix-table tr:last-child td{border-bottom:none}
+.matrix-table tr:hover td{background:var(--s1)}
+.cell-heat{display:inline-block;padding:2px 8px;border-radius:6px;font-weight:700;font-size:10px;font-family:var(--mono)}
+
+/* ── HEATMAP ── */
+.heatmap-grid{display:grid;gap:3px}
+.hm-cell{border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;font-family:var(--mono);padding:6px 0}
+.hm-header{font-size:10px;color:var(--ink3);text-align:center;padding:4px 0}
+
+/* ── GAUGE ── */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+.gauge-canvas-wrap{position:relative;width:140px;height:80px}
+.gauge-val{font-size:22px;font-weight:800;font-family:var(--mono);color:var(--ink);text-align:center;margin-top:4px}
+.gauge-label{font-size:10px;color:var(--ink3);text-align:center}
+
+/* ── CUSTOMER PROFILE CARD ── */
+.profile-card{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:var(--radius);padding:16px;color:#fff;margin-bottom:12px}
+.pc-name{font-size:18px;font-weight:800;margin-bottom:2px}
+.pc-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:12px}
+.pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pc-field{background:rgba(255,255,255,0.07);border-radius:7px;padding:8px 10px}
+.pc-fk{font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.pc-fv{font-size:12px;font-weight:600;color:#fff}
+
+/* ── RECOMMENDATION CARDS ── */
+.rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.rec-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px}
+.rc-priority{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;margin-bottom:6px;font-family:var(--mono)}
+.rc-priority.high{background:var(--red2);color:var(--red)}
+.rc-priority.med{background:var(--amber2);color:var(--amber)}
+.rc-priority.low{background:var(--green2);color:var(--green)}
+.rc-finding{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.rc-rec{font-size:11px;color:var(--ink2);margin-bottom:8px;line-height:1.4}
+.rc-impact{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--orange)}
+
+/* ── ROI CALCULATOR ── */
+.roi-card{background:var(--navy);border-radius:var(--radius);padding:16px;color:#fff;margin-bottom:14px}
+.roi-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:12px}
+.roi-inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+.roi-input-wrap{background:rgba(255,255,255,0.07);border-radius:8px;padding:10px}
+.ri-label{font-size:9px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.ri-val{font-size:16px;font-weight:800;font-family:var(--mono);color:#fff}
+.ri-input{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#fff;font-size:13px;font-weight:700;font-family:var(--mono);padding:4px 8px;width:100%;outline:none}
+.roi-results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.rr-card{background:rgba(255,255,255,0.06);border-radius:8px;padding:10px;text-align:center}
+.rr-val{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--orange)}
+.rr-label{font-size:9px;color:rgba(255,255,255,0.45);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── TIMELINE ── */
+.timeline{display:flex;flex-direction:column;gap:0}
+.tl-item{display:flex;gap:10px;padding:8px 0;border-left:2px solid var(--line);margin-left:8px;padding-left:12px;position:relative}
+.tl-item::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--orange);position:absolute;left:-5px;top:12px}
+.tl-item.done::before{background:var(--green)}
+.tl-date{font-size:10px;font-family:var(--mono);color:var(--ink3);min-width:72px}
+.tl-label{font-size:11.5px;color:var(--ink);font-weight:600}
+.tl-sub{font-size:10.5px;color:var(--ink2);margin-top:1px}
+
+/* ── UPLOAD OVERLAY ── */
+.upload-overlay{background:var(--surface);border:2px dashed var(--line);border-radius:var(--radius);padding:28px;text-align:center;color:var(--ink3);font-size:12px;margin-bottom:14px;cursor:pointer}
+.upload-overlay:hover{border-color:var(--orange);color:var(--orange)}
+.uo-icon{font-size:28px;margin-bottom:8px}
+.uo-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:4px}
+
+/* ── MISC ── */
+.section-divider{height:1px;background:var(--line);margin:16px 0}
+.tag{display:inline-block;font-size:9px;padding:2px 7px;border-radius:8px;font-family:var(--mono);font-weight:600}
+.tag.green{background:var(--green2);color:var(--green)}
+.tag.orange{background:var(--orange2);color:var(--orange)}
+.tag.red{background:var(--red2);color:var(--red)}
+.tag.purple{background:var(--purple2);color:var(--purple)}
+.tag.navy{background:var(--navy3);color:var(--navy)}
+.data-source{font-size:9.5px;color:var(--ink3);font-family:var(--mono);margin-top:6px}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-mark">EXL</div>
+    <div>
+      <div class="hdr-title">Motor Insurance — Quote-to-Policy Intelligence</div>
+      <div class="hdr-sub">EXL Service · Analytics & AI · Case Study Dashboard</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="demo-badge" id="dataModeBadge">DEMO DATA</span>
+      <div id="fileStatusDots" style="display:flex;gap:6px;align-items:center"></div>
+      <button onclick="var p=document.getElementById('debugPanel');p.style.display=p.style.display==='none'?'block':'none'" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;font-family:monospace">DEBUG</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('exec')">Executive</div>
+  <div class="tab" onclick="showTab('sales')">Sales & Conversion</div>
+  <div class="tab" onclick="showTab('journey')">Customer Journey</div>
+  <div class="tab" onclick="showTab('c360')">Customer 360</div>
+  <div class="tab" onclick="showTab('uw')">Underwriting</div>
+  <div class="tab" onclick="showTab('claims')">Claims</div>
+  <div class="tab" onclick="showTab('ai')">AI Monitoring</div>
+  <div class="tab" onclick="showTab('reco')">Recommendations</div>
+</div>
+
+
+<!-- DEBUG PANEL -->
+<div id="debugPanel" style="background:#1e293b;color:#94a3b8;font-family:monospace;font-size:11px;padding:10px 20px;border-bottom:1px solid #334155;display:block">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="color:#38bdf8;font-weight:700">DEBUG — Fetch & Parse Log</span>
+    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:11px">✕ close</button>
+  </div>
+  <div id="debugLog" style="display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto"></div>
+</div>
+
+<!-- BODY -->
+<div class="body">
+
+<!-- ══════════════════════════════
+     TAB 1: EXECUTIVE
+══════════════════════════════ -->
+<div class="page active" id="page-exec">
+  <div class="page-title">Executive Dashboard</div>
+  <div class="page-sub">Source: executive_dashboard mart · Answers: "Is the business improving?"</div>
+
+  <div class="kpi-row" id="exec-kpis"></div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Quote & Policy Trend</div>
+      <div class="cc-sub">Daily volume — quotes generated vs policies issued</div>
+      <div class="chart-wrap tall"><canvas id="ch-quoteTrend"></canvas></div>
+      <div class="data-source">executive_dashboard · quote_volume, policies_issued by date</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion & Abandonment Rate Trend</div>
+      <div class="cc-sub">conversion_rate vs 100−conversion_rate by date</div>
+      <div class="chart-wrap tall"><canvas id="ch-convTrend"></canvas></div>
+      <div class="data-source">executive_dashboard · conversion_rate by date</div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-23">
+    <div class="chart-card">
+      <div class="cc-title">Revenue & Claims Trend</div>
+      <div class="cc-sub">premium_collected vs claim_amount · calculated: quoted_premium × (1 + premium_adjustment_pct/100)</div>
+      <div class="chart-wrap"><canvas id="ch-revTrend"></canvas></div>
+      <div class="data-source">executive_dashboard · premium_collected, claims_paid by date</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion Funnel</div>
+      <div class="cc-sub">Quote → Documents → Underwriting → Payment → Policy Issued</div>
+      <div id="exec-funnel" class="funnel-wrap"></div>
+      <div class="data-source">fact_customer_journey · stage_name, completed_flag</div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">KPI vs Target</div>
+      <div class="cc-sub">Current performance against case brief targets</div>
+      <div id="kpi-vs-target"></div>
+      <div class="data-source">executive_dashboard · measures vs brief targets</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Manual Underwriting % Trend</div>
+      <div class="cc-sub">manual_underwriting_pct and ai_usage by date</div>
+      <div class="chart-wrap"><canvas id="ch-manualTrend"></canvas></div>
+      <div class="data-source">executive_dashboard · manual_underwriting_pct, ai_usage</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 2: SALES & CONVERSION
+══════════════════════════════ -->
+<div class="page" id="page-sales">
+  <div class="page-title">Sales & Conversion Dashboard</div>
+  <div class="page-sub">Source: sales_dashboard mart · Answers: "Where are we losing sales?"</div>
+
+  <div class="kpi-row" id="sales-kpis"></div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Conversion Funnel by Stage</div>
+      <div class="cc-sub">quote_stage counts — ordered through pipeline</div>
+      <div id="sales-funnel" class="funnel-wrap"></div>
+      <div class="data-source">sales_dashboard · quote_stage</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Channel</div>
+      <div class="cc-sub">channel_name × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-byChannel"></canvas></div>
+      <div class="data-source">sales_dashboard · channel_name, conversion_rate</div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-3">
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Region</div>
+      <div class="cc-sub">region × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-byRegion"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Age Band</div>
+      <div class="cc-sub">customer_age (binned) × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-byAge"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Device</div>
+      <div class="cc-sub">device_type × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-byDevice"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Channel × Region Heatmap</div>
+      <div class="cc-sub">conversion_rate — channel_name vs region</div>
+      <div id="ch-heatmap" style="overflow-x:auto"></div>
+      <div class="data-source">sales_dashboard · channel_name, region, conversion_rate</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Premium Distribution</div>
+      <div class="cc-sub">quoted_premium histogram</div>
+      <div class="chart-wrap"><canvas id="ch-premDist"></canvas></div>
+      <div class="data-source">sales_dashboard · quoted_premium</div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Quote Source</div>
+      <div class="cc-sub">quote_source × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-bySource"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Conversion by Gender</div>
+      <div class="cc-sub">gender × conversion_flag</div>
+      <div class="chart-wrap sm"><canvas id="ch-byGender"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 3: CUSTOMER JOURNEY
+══════════════════════════════ -->
+<div class="page" id="page-journey">
+  <div class="page-title">Customer Journey Dashboard</div>
+  <div class="page-sub">Source: fact_customer_journey · Answers: "Why are customers dropping?"</div>
+
+  <div class="kpi-row" id="journey-kpis"></div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Journey Drop-off Funnel</div>
+      <div class="cc-sub">stage_name count where completed_flag=true, ordered by stage_sequence</div>
+      <div id="journey-funnel" class="funnel-wrap"></div>
+      <div class="data-source">fact_customer_journey · stage_name, completed_flag, stage_sequence</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Drop-off % per Stage</div>
+      <div class="cc-sub">Count entering stage N vs stage N+1 (calculated)</div>
+      <div class="chart-wrap"><canvas id="ch-dropoff"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-3">
+    <div class="chart-card">
+      <div class="cc-title">Avg Time Between Stages (mins)</div>
+      <div class="cc-sub">AVG(duration_seconds)/60 by stage_name</div>
+      <div class="chart-wrap"><canvas id="ch-stageTimes"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Exit Reasons</div>
+      <div class="cc-sub">exit_reason where abandoned_flag=true</div>
+      <div class="chart-wrap"><canvas id="ch-exitReasons"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">AI Assistance vs Conversion</div>
+      <div class="cc-sub">ai_assistance_used × conversion_flag</div>
+      <div class="chart-wrap"><canvas id="ch-aiAssist"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Device Journey Breakdown</div>
+      <div class="cc-sub">device_type × stage_name (stacked)</div>
+      <div class="chart-wrap tall"><canvas id="ch-deviceJourney"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Traffic Source vs Conversion</div>
+      <div class="cc-sub">traffic_source × conversion_flag</div>
+      <div class="chart-wrap tall"><canvas id="ch-trafficSource"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 4: CUSTOMER 360
+══════════════════════════════ -->
+<div class="page" id="page-c360">
+  <div class="page-title">Customer 360 Dashboard</div>
+  <div class="page-sub">Source: customer360_dashboard · Answers: "Who converts?"</div>
+
+  <div class="kpi-row" id="c360-kpis"></div>
+
+  <div class="chart-grid cg-2">
+    <div>
+      <div id="c360-profile"></div>
+      <div class="chart-card" style="margin-top:12px">
+        <div class="cc-title">Risk Profile Distribution</div>
+        <div class="cc-sub">avg_risk_score / risk_category — rule-based, not ML output</div>
+        <div class="chart-wrap sm"><canvas id="ch-riskDist"></canvas></div>
+      </div>
+    </div>
+    <div>
+      <div class="chart-card" style="margin-bottom:12px">
+        <div class="cc-title">Conversion by Insurance History</div>
+        <div class="cc-sub">previously_insured × conversion_flag</div>
+        <div class="chart-wrap sm"><canvas id="ch-prevIns"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="cc-title">Recommendations (Rule-Based)</div>
+        <div class="cc-sub">Business rules off existing fields — explicitly not ML output</div>
+        <div id="c360-recs"></div>
+        <div class="data-source">customer360_dashboard · abandoned_sessions, high_value_quote, quote_status</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">AI Interaction Quality by Customer Segment</div>
+      <div class="cc-sub">customer_segment × avg_ai_confidence, avg_customer_rating</div>
+      <div class="chart-wrap"><canvas id="ch-aiBySegment"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Journey Events by Stage</div>
+      <div class="cc-sub">total_journey_events distribution by stage</div>
+      <div class="chart-wrap"><canvas id="ch-journeyEvents"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 5: UNDERWRITING
+══════════════════════════════ -->
+<div class="page" id="page-uw">
+  <div class="page-title">Underwriting Dashboard</div>
+  <div class="page-sub">Source: underwriting_dashboard · Answers: "Why is underwriting slow?"</div>
+
+  <div class="kpi-row" id="uw-kpis"></div>
+
+  <div class="chart-grid cg-3">
+    <div class="chart-card">
+      <div class="cc-title">Risk Score Distribution</div>
+      <div class="cc-sub">risk_score histogram</div>
+      <div class="chart-wrap"><canvas id="ch-riskScore"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Decision Breakdown</div>
+      <div class="cc-sub">underwriting_decision distribution</div>
+      <div class="chart-wrap"><canvas id="ch-uwDecision"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">SLA Breach Gauge</div>
+      <div class="cc-sub">sla_breached_flag rate</div>
+      <div id="uw-sla-gauge" class="gauge-wrap"></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Manual Review % Trend</div>
+      <div class="cc-sub">manual_review_flag rate by underwriting_date_sk</div>
+      <div class="chart-wrap tall"><canvas id="ch-manualTrend2"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">AI Recommendation vs Final Decision</div>
+      <div class="cc-sub">recommendation × underwriting_decision — AI governance / override rate story</div>
+      <div id="uw-matrix"></div>
+      <div class="data-source">underwriting_dashboard · recommendation, underwriting_decision</div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Review Time by Underwriter</div>
+      <div class="cc-sub">underwriter × AVG(review_time_minutes)</div>
+      <div class="chart-wrap"><canvas id="ch-uwByPerson"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Fraud Probability Distribution</div>
+      <div class="cc-sub">fraud_probability histogram</div>
+      <div class="chart-wrap"><canvas id="ch-fraudDist"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 6: CLAIMS
+══════════════════════════════ -->
+<div class="page" id="page-claims">
+  <div class="page-title">Claims Dashboard</div>
+  <div class="page-sub">Source: claims_dashboard · No customer demographics by design · Answers: "How are claims impacting profitability?"</div>
+
+  <div class="kpi-row" id="claims-kpis"></div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Claim Amount Trend</div>
+      <div class="cc-sub">claim_amount by date</div>
+      <div class="chart-wrap tall"><canvas id="ch-claimTrend"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Claim Severity Distribution</div>
+      <div class="cc-sub">claim_severity categories</div>
+      <div class="chart-wrap tall"><canvas id="ch-claimSeverity"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-3">
+    <div class="chart-card">
+      <div class="cc-title">Settlement Time Distribution</div>
+      <div class="cc-sub">settlement_days / settlement_band histogram</div>
+      <div class="chart-wrap"><canvas id="ch-settlementDist"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Fraud Risk Distribution</div>
+      <div class="cc-sub">fraud_risk categories</div>
+      <div class="chart-wrap"><canvas id="ch-fraudRisk"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Vehicle Segment vs Claims</div>
+      <div class="cc-sub">segment × claim_count</div>
+      <div class="chart-wrap"><canvas id="ch-segClaims"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Safety Rating vs Claim Frequency</div>
+      <div class="cc-sub">safety_rating × claim_count</div>
+      <div class="chart-wrap"><canvas id="ch-safetyVsClaims"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Vehicle Segment × Fuel Type Heatmap</div>
+      <div class="cc-sub">Claim count — segment vs fuel_type (replaces Region heatmap — region not in claims mart by design)</div>
+      <div id="claims-heatmap"></div>
+      <div class="data-source">claims_dashboard · segment, fuel_type, claim_count</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 7: AI MONITORING
+══════════════════════════════ -->
+<div class="page" id="page-ai">
+  <div class="page-title">AI Monitoring Dashboard</div>
+  <div class="page-sub">Source: ai_monitoring_dashboard · Answers: "Is AI delivering value?" · Models: Claude Haiku 4.5 / Sonnet 5 / Opus 4.8</div>
+
+  <div class="kpi-row" id="ai-kpis"></div>
+
+  <div class="chart-grid cg-3">
+    <div class="chart-card">
+      <div class="cc-title">Confidence Distribution</div>
+      <div class="cc-sub">confidence_score (0.55–0.99)</div>
+      <div class="chart-wrap"><canvas id="ch-confDist"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Question Category Breakdown</div>
+      <div class="cc-sub">question_category distribution</div>
+      <div class="chart-wrap"><canvas id="ch-qCategory"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Escalations by Category</div>
+      <div class="cc-sub">question_category × escalation_required</div>
+      <div class="chart-wrap"><canvas id="ch-escalByCategory"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Response Time Trend (ms)</div>
+      <div class="cc-sub">response_time_ms by date</div>
+      <div class="chart-wrap tall"><canvas id="ch-respTimeTrend"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Sentiment Trend</div>
+      <div class="cc-sub">customer_sentiment (Positive/Neutral/Negative) stacked by date</div>
+      <div class="chart-wrap tall"><canvas id="ch-sentimentTrend"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">Model Performance</div>
+      <div class="cc-sub">ai_model_version × AVG(ai_quality_score) — Claude Haiku 4.5 / Sonnet 5 / Opus 4.8</div>
+      <div class="chart-wrap"><canvas id="ch-modelPerf"></canvas></div>
+      <div class="data-source">ai_monitoring_dashboard · ai_model_version, ai_quality_score</div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Token Usage Trend</div>
+      <div class="cc-sub">SUM(token_count) by date</div>
+      <div class="chart-wrap"><canvas id="ch-tokenTrend"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB 8: RECOMMENDATIONS
+══════════════════════════════ -->
+<div class="page" id="page-reco">
+  <div class="page-title">Executive Recommendations & ROI</div>
+  <div class="page-sub">Findings computed from Gold layer · Real ROI formula applied · Assumptions stated explicitly</div>
+
+  <div class="rec-grid" id="rec-cards"></div>
+
+  <div class="roi-card" id="roi-section">
+    <div class="roi-title">ROI Calculator — Quote-to-Policy Conversion Improvement</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:12px;font-family:var(--mono)">Assumption: "+10% conversion" = +10 percentage points absolute (not relative). Stated explicitly per data dictionary guidance.</div>
+    <div class="roi-inputs">
+      <div class="roi-input-wrap">
+        <div class="ri-label">Current Conv. Rate (%)</div>
+        <input class="ri-input" id="roi-curr" type="number" value="11.8" oninput="calcROI()">
+      </div>
+      <div class="roi-input-wrap">
+        <div class="ri-label">Target Conv. Rate (%)</div>
+        <input class="ri-input" id="roi-target" type="number" value="21.8" oninput="calcROI()">
+      </div>
+      <div class="roi-input-wrap">
+        <div class="ri-label">Avg Premium (₹)</div>
+        <input class="ri-input" id="roi-prem" type="number" value="5540" oninput="calcROI()">
+      </div>
+      <div class="roi-input-wrap">
+        <div class="ri-label">Annual Quote Volume</div>
+        <input class="ri-input" id="roi-vol" type="number" value="97655" oninput="calcROI()">
+      </div>
+      <div class="roi-input-wrap">
+        <div class="ri-label">UW Cost / Manual Case (₹)</div>
+        <input class="ri-input" id="roi-uwcost" type="number" value="800" oninput="calcROI()">
+      </div>
+      <div class="roi-input-wrap">
+        <div class="ri-label">Manual UW % Reduction</div>
+        <input class="ri-input" id="roi-uwred" type="number" value="20" oninput="calcROI()">
+      </div>
+    </div>
+    <div class="roi-results" id="roi-results"></div>
+  </div>
+
+  <div class="chart-grid cg-2">
+    <div class="chart-card">
+      <div class="cc-title">KPI Target vs Current State</div>
+      <div class="cc-sub">Case brief targets: +10% conversion · -20% abandonment · -25% policy TAT · -20% manual UW</div>
+      <div class="chart-wrap"><canvas id="ch-kpiTarget"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Agent Contribution to KPI Targets</div>
+      <div class="cc-sub">Which agents drive which KPI improvements</div>
+      <div id="agent-contrib"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /body -->
+
+<script>
+/* ══════════════════════════════════════════════════════
+   CHART.JS DEFAULTS
+══════════════════════════════════════════════════════ */
+Chart.defaults.font.family = "'SF Mono', ui-monospace, Consolas, monospace";
+Chart.defaults.font.size = 10;
+Chart.defaults.color = '#8AA0B8';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding = 12;
+
+const C = { navy:'#003057', orange:'#F26522', green:'#16A34A', amber:'#D97706', red:'#DC2626', purple:'#7C3AED', ink:'#1A2332', ink2:'#4A6080', ink3:'#8AA0B8', line:'#D4E0EA' };
+const PALETTE = [C.navy, C.orange, C.green, C.amber, C.red, C.purple, '#0891B2','#BE185D','#92400E','#065F46'];
+
+/* ══════════════════════════════════════════════════════
+   SYNTHETIC DEMO DATA — matches Gold layer schema
+══════════════════════════════════════════════════════ */
+function genDates(n, start='2024-01-01'){
+  const d=new Date(start); const out=[];
+  for(let i=0;i<n;i++){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);}
+  return out;
+}
+function rnd(lo,hi){return lo+Math.random()*(hi-lo);}
+function rndInt(lo,hi){return Math.round(rnd(lo,hi));}
+function seed(arr){return arr[rndInt(0,arr.length-1)];}
+
+const DATES = genDates(180);
+const N = 180;
+
+function smooth(arr, w=7){
+  return arr.map((_,i)=>{
+    const sl=arr.slice(Math.max(0,i-w+1),i+1);
+    return Math.round(sl.reduce((a,b)=>a+b,0)/sl.length);
+  });
+}
+
+/* Executive data */
+const quoteVol   = smooth(DATES.map(()=>rndInt(400,650)));
+const policyIss  = quoteVol.map(v=>Math.round(v*rnd(0.10,0.14)));
+const convRate   = policyIss.map((p,i)=>+(100*p/quoteVol[i]).toFixed(1));
+const premium    = policyIss.map(p=>Math.round(p*rnd(5200,5800)));
+const claimsAmt  = premium.map(p=>Math.round(p*rnd(0.35,0.50)));
+const manualUWpct= smooth(DATES.map(()=>rndInt(32,45)));
+const aiUsagePct = manualUWpct.map(v=>100-v);
+const custSat    = smooth(DATES.map(()=>+rnd(3.6,4.4).toFixed(1)));
+const avgJT      = smooth(DATES.map(()=>rndInt(48,80)));
+
+const DATA = {
+  exec: { dates:DATES, quoteVol, policyIss, convRate, premium, claimsAmt, manualUWpct, aiUsagePct, custSat, avgJT },
+  uploaded: {}
+};
+
+/* Sales data */
+const channels=['Direct','Aggregator','Broker','Agent','Walk-in'];
+const channelConv=[18.2,8.4,12.1,14.7,11.3];
+const channelVol=[28000,31000,18000,12000,8655];
+
+const regions=['MH','KA','DL','TN','GJ','RJ','UP','WB'];
+const regionConv=[14.2,16.8,11.4,15.1,12.7,10.3,9.8,13.5];
+
+const ages=['18-25','26-35','36-45','46-55','56-65','66+'];
+const ageConv=[8.2,14.6,16.4,13.8,11.2,8.9];
+
+const devices=['Mobile App','Web Browser','Broker Portal','WhatsApp','Phone'];
+const deviceConv=[12.4,11.8,16.2,9.1,14.3];
+
+const premBins=['<3000','3K-5K','5K-8K','8K-12K','12K-20K','>20K'];
+const premCounts=[8200,22400,31000,18600,12100,5355];
+
+const sources=['Google Ads','Organic','Referral','Social Media','Email','Direct'];
+const sourceConv=[10.2,15.8,18.4,8.6,14.2,16.1];
+const genders=['Male','Female','Other'];
+const genderConv=[12.8,13.4,11.9];
+
+/* Journey data */
+const journeyStages=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+const journeyVols=[97655,72400,48200,38600,16400,11200];
+const stageTimes=[0,8.4,24.6,18.2,72.4,12.8]; // avg hours
+const exitReasons=['Premium too high','Documentation friction','Underwriting delay','Payment issues','Changed mind','Competitor'];
+const exitCounts=[38,24,19,11,5,3];
+const aiAssist={withAI:[8200,6100],withoutAI:[48200,5100]};
+const deviceStages={Mobile:journeyVols.map(v=>Math.round(v*.55)),Web:journeyVols.map(v=>Math.round(v*.32)),Broker:journeyVols.map(v=>Math.round(v*.13))};
+const trafficSources=['Organic Search','Paid Search','Aggregator','Email','Social','Direct'];
+const trafficConv=[15.2,9.8,8.4,16.4,7.2,18.1];
+
+/* Underwriting */
+const riskBins=['0-20','21-40','41-60','61-80','81-100'];
+const riskCounts=[18400,31200,24600,15800,7655];
+const uwDecisions=['Auto Approve','Assisted Review','Senior UW','Reject'];
+const uwDecVals=[42200,28400,18600,8455];
+const reviewTimes=[18.2,24.6,42.1,38.4,19.8,55.2,31.4]; // by underwriter
+const uwNames=['U-01','U-02','U-03','U-04','U-05','U-06','U-07'];
+const fraudBins=['0-0.2','0.2-0.4','0.4-0.6','0.6-0.8','0.8-1.0'];
+const fraudCounts=[52000,21000,12000,7200,5455];
+const uwTrendDates=genDates(90);
+const manualTrend2=smooth(uwTrendDates.map(()=>rndInt(30,46)));
+const aiMatrix=[
+  {ai:'Auto Approve',final:'Auto Approve',count:38200},
+  {ai:'Auto Approve',final:'Assisted Review',count:2100},
+  {ai:'Assisted Review',final:'Auto Approve',count:4800},
+  {ai:'Assisted Review',final:'Assisted Review',count:22400},
+  {ai:'Assisted Review',final:'Senior UW',count:1800},
+  {ai:'Senior UW',final:'Assisted Review',count:3200},
+  {ai:'Senior UW',final:'Senior UW',count:14600},
+  {ai:'Senior UW',final:'Reject',count:800},
+];
+
+/* Claims */
+const claimDates=genDates(180,'2024-01-01');
+const claimAmtArr=smooth(claimDates.map(()=>rndInt(8000000,14000000)));
+const claimSeverity=['Minor','Moderate','Major','Total Loss'];
+const claimSevVals=[42,31,20,7];
+const settleDays=['0-7','8-14','15-30','31-60','>60'];
+const settleVals=[18,24,31,19,8];
+const fraudRisk=['Low','Medium','High','Very High'];
+const fraudRiskVals=[58,24,12,6];
+const vehicleSegs=['Segment A','Segment B','Segment C','Segment D','Segment E'];
+const segClaimCounts=[8200,12400,9600,6800,4200];
+const safetyRatings=['Excellent','Good','Average','Poor'];
+const safetyClaimCounts=[4200,9800,16400,10800];
+const fuelTypes=['Petrol','Diesel','EV','CNG'];
+const claimsHeatData={
+  segs:vehicleSegs,fuels:fuelTypes,
+  vals:vehicleSegs.map(()=>fuelTypes.map(()=>rndInt(800,4200)))
+};
+
+/* AI Monitoring */
+const aiDates=genDates(90);
+const confBins=['0.55-0.65','0.65-0.75','0.75-0.85','0.85-0.95','0.95-0.99'];
+const confCounts=[3200,8600,18400,21200,9600];
+const qCats=['Premium Query','Coverage Question','Document Help','Claim Status','Policy Terms','Renewal'];
+const qCatCounts=[28,22,18,14,10,8];
+const escalByCategory=qCats.map(()=>rndInt(4,28));
+const sentDates=genDates(60);
+const sentPos=smooth(sentDates.map(()=>rndInt(52,68)));
+const sentNeu=sentPos.map(v=>Math.round((100-v)*0.6));
+const sentNeg=sentPos.map((v,i)=>100-v-sentNeu[i]);
+const respTimeTrend=smooth(aiDates.map(()=>rndInt(280,480)));
+const models=['Claude Haiku 4.5','Claude Sonnet 5','Claude Opus 4.8'];
+const modelScores=[78.4, 88.6, 92.1];
+const tokenTrend=smooth(aiDates.map(()=>rndInt(180000,420000)));
+
+/* ══════════════════════════════════════════════════════
+   AUTO-FETCH FROM GITHUB — no manual upload needed
+   Falls back to demo data if fetch fails (local / offline)
+══════════════════════════════════════════════════════ */
+const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/data/gold';
+
+const REMOTE_FILES = {
+  exec:    REPO_BASE + '/data_marts/executive_dashboard.csv',
+  sales:   REPO_BASE + '/data_marts/sales_dashboard.csv',
+  uw:      REPO_BASE + '/data_marts/underwriting_dashboard.csv',
+  claims:  REPO_BASE + '/data_marts/claims_dashboard.csv',
+  ai:      REPO_BASE + '/data_marts/ai_monitoring_dashboard.csv',
+  c360:    REPO_BASE + '/data_marts/customer360_dashboard.csv',
+  journey: REPO_BASE + '/facts/fact_customer_journey.csv',
+};
+
+function parseCSVText(text){
+  const result = Papa.parse(text, {header:true, dynamicTyping:true, skipEmptyLines:true});
+  return result.data;
+}
+
+const FILE_LABELS = {exec:'Executive',sales:'Sales',uw:'Underwriting',claims:'Claims',ai:'AI',c360:'C360',journey:'Journey'};
+
+function renderStatusDots(){
+  const wrap = document.getElementById('fileStatusDots');
+  if(!wrap) return;
+  wrap.innerHTML = Object.keys(REMOTE_FILES).map(key=>{
+    const loaded = !!DATA.uploaded[key];
+    return '<div style="display:flex;align-items:center;gap:3px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,'+(loaded?'0.15':'0.07')+');border-radius:12px;padding:2px 8px"><div style="width:5px;height:5px;border-radius:50%;background:'+(loaded?'#4ADE80':'#64748B')+'"></div><span style="font-size:9.5px;color:'+(loaded?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.35)')+';font-family:var(--mono)">'+FILE_LABELS[key]+'</span></div>';
+  }).join('');
+}
+
+function setDotLoaded(key){ renderStatusDots(); }
+
+function updateDataBadge(){
+  const loaded = Object.keys(DATA.uploaded).length;
+  const total  = Object.keys(REMOTE_FILES).length;
+  const badge  = document.getElementById('dataModeBadge');
+  if(loaded === total){
+    badge.textContent='LIVE DATA'; badge.style.background='rgba(22,163,74,0.2)'; badge.style.color='#4ADE80'; badge.style.borderColor='rgba(22,163,74,0.3)';
+  } else if(loaded > 0){
+    badge.textContent='LIVE ('+loaded+'/'+total+')'; badge.style.background='rgba(217,119,6,0.2)'; badge.style.color='#FCD34D'; badge.style.borderColor='rgba(217,119,6,0.3)';
+  }
+  renderStatusDots();
+}
+
+function dbg(msg, color){
+  const el=document.getElementById('debugLog'); if(!el) return;
+  const d=document.createElement('div');
+  d.style.color=color||'#94a3b8'; d.textContent='['+new Date().toLocaleTimeString()+'] '+msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+  console.log(msg);
+}
+
+async function fetchOneCSV(key, url){
+  dbg('Fetching: '+key+' → '+url.split('/').slice(-1)[0], '#38bdf8');
+  try {
+    const res = await fetch(url);
+    dbg(key+': HTTP '+res.status, res.ok?'#4ade80':'#f87171');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    dbg(key+': '+text.length+' bytes received', '#94a3b8');
+    const rows = parseCSVText(text);
+    dbg(key+': '+rows.length+' rows parsed, cols: '+Object.keys(rows[0]||{}).slice(0,5).join(', ')+'...', rows.length>0?'#4ade80':'#f87171');
+    if(rows.length > 0){
+      DATA.uploaded[key] = rows;
+      setDotLoaded(key);
+      updateDataBadge();
+      // try render immediately
+      try{
+        const renderFn={exec:renderExec,sales:renderSales,uw:renderUW,claims:renderClaims,ai:renderAI,c360:renderC360}[key];
+        if(renderFn){ rendered.delete(key); renderFn(); rendered.add(key); dbg(key+': rendered OK','#4ade80'); }
+      } catch(re){ dbg(key+' render ERROR: '+re.message,'#f87171'); }
+      return true;
+    } else {
+      dbg(key+': 0 rows — staying on demo data','#fbbf24');
+    }
+  } catch(e){
+    dbg(key+' fetch ERROR: '+e.message,'#f87171');
+  }
+  return false;
+}
+
+async function autoFetchAllCSVs(){
+  setLoadingState(true);
+  const fetches = Object.entries(REMOTE_FILES).map(([key,url]) => fetchOneCSV(key, url));
+  await Promise.all(fetches);
+  setLoadingState(false);
+  refreshAllCharts();
+}
+
+function setLoadingState(loading){
+  const badge = document.getElementById('dataModeBadge');
+  if(loading){ badge.textContent = 'LOADING…'; badge.style.background='rgba(56,189,248,0.15)'; badge.style.color='#38BDF8'; badge.style.borderColor='rgba(56,189,248,0.25)'; }
+}
+
+/* Manual upload still works as fallback */
+function loadCSV(evt, key){
+  const file=evt.target.files[0]; if(!file) return;
+  Papa.parse(file,{header:true,dynamicTyping:true,skipEmptyLines:true,complete:r=>{
+    DATA.uploaded[key]=r.data;
+    setDotLoaded(key);
+    updateDataBadge();
+    refreshAllCharts();
+  }});
+}
+
+/* ══════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════ */
+const charts = {};
+function mkChart(id, cfg){
+  const existing=charts[id];
+  if(existing) existing.destroy();
+  const canvas=document.getElementById(id);
+  if(!canvas) return;
+  charts[id]=new Chart(canvas.getContext('2d'), cfg);
+}
+
+function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+function fmt(n){ return n>=1e7 ? '₹'+(n/1e7).toFixed(1)+'Cr' : n>=1e5 ? '₹'+(n/1e5).toFixed(1)+'L' : n>=1000 ? n.toLocaleString('en-IN') : n.toFixed ? n.toFixed(1) : n; }
+function fmtRs(n){ return '₹'+Math.round(n).toLocaleString('en-IN'); }
+
+function kpiCard(label, val, cls, delta, deltaDir){
+  return `<div class="kpi-card"><div class="kc-label">${label}</div><div class="kc-val ${cls||''}">${val}</div>${delta?`<div class="kc-delta ${deltaDir||'neu'}">${delta}</div>`:''}</div>`;
+}
+
+function funnel(containerId, stages, values, colors){
+  const el=document.getElementById(containerId); if(!el) return;
+  const maxV=values[0]||1;
+  el.innerHTML=stages.map((s,i)=>{
+    const pct=Math.round(100*values[i]/maxV);
+    const drop=i>0?(-Math.round((values[i-1]-values[i])/values[i-1]*100)):'';
+    const col=colors?colors[i]:PALETTE[i%PALETTE.length];
+    return `<div class="funnel-step">
+      <div class="fs-label"><span>${s}</span><span style="font-family:var(--mono);font-weight:700">${values[i].toLocaleString('en-IN')}</span></div>
+      <div class="fs-bar-outer"><div class="fs-bar-inner" style="width:${pct}%;background:${col}">${pct}%</div></div>
+      ${drop?`<div class="fs-drop">▼ ${Math.abs(drop)}% drop-off from previous stage</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function barChart(id, labels, datasets, opts={}){
+  mkChart(id,{type:'bar',data:{labels,datasets:datasets.map((d,i)=>({label:d.label,data:d.data,backgroundColor:d.color||PALETTE[i],borderRadius:4,borderSkipped:false,...(d.extra||{})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false},ticks:{maxRotation:45}},y:{grid:{color:'#EBF1F7'},beginAtZero:true,...(opts.y||{})}}}});
+}
+
+function lineChart(id, labels, datasets, opts={}){
+  mkChart(id,{type:'line',data:{labels,datasets:datasets.map((d,i)=>({label:d.label,data:d.data,borderColor:d.color||PALETTE[i],backgroundColor:d.fill?d.fill:'transparent',tension:0.35,pointRadius:0,borderWidth:2,...(d.extra||{})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:datasets.length>1}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{grid:{color:'#EBF1F7'},beginAtZero:false,...(opts.y||{})}}}});
+}
+
+function pieChart(id, labels, data, colors){
+  mkChart(id,{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors||PALETTE,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right'}},cutout:'55%'}});
+}
+
+function histChart(id, labels, data, color){
+  barChart(id, labels, [{label:'Count',data,color}]);
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER EACH TAB
+══════════════════════════════════════════════════════ */
+function renderExec(){
+  const D=DATA.exec;
+  const totalQuotes=sum(D.quoteVol);
+  const totalPolicies=sum(D.policyIss);
+  const avgConv=+(avg(D.convRate)).toFixed(1);
+  const totalPremium=sum(D.premium);
+  const totalClaims=sum(D.claimsAmt);
+  const claimRatio=+(100*totalClaims/totalPremium).toFixed(1);
+  const avgManual=+(avg(D.manualUWpct)).toFixed(0);
+  const avgSat=+(avg(D.custSat)).toFixed(1);
+  const avgJT=+(avg(D.avgJT)).toFixed(0);
+
+  document.getElementById('exec-kpis').innerHTML=[
+    kpiCard('Quote Volume',totalQuotes.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Policies Issued',totalPolicies.toLocaleString('en-IN'),'green','Target: +10%','neu'),
+    kpiCard('Conversion Rate',avgConv+'%','orange',avgConv>=21?'▲ Target met':'▼ Target: 21.8%',avgConv>=21?'up':'dn'),
+    kpiCard('Abandonment Rate',(100-avgConv).toFixed(1)+'%','red','',''),
+    kpiCard('Premium Collected',fmt(totalPremium),'navy','calc: premium × (1+adj%)','neu'),
+    kpiCard('Claims Paid',fmt(totalClaims),'','',''),
+    kpiCard('Claim Ratio',claimRatio+'%',claimRatio<45?'green':'red','',''),
+    kpiCard('Manual UW %',avgManual+'%',avgManual<35?'green':'amber','Target: -20%','neu'),
+    kpiCard('Cust. Satisfaction',avgSat+'/5','green','',''),
+    kpiCard('Avg Journey (hrs)',avgJT+'h',avgJT<60?'green':'amber','Target: -25% TAT','neu'),
+  ].join('');
+
+  const sl=14;
+  lineChart('ch-quoteTrend',D.dates.filter((_,i)=>i%sl===0),
+    [{label:'Quotes',data:D.quoteVol.filter((_,i)=>i%sl===0),color:C.navy},
+     {label:'Policies Issued',data:D.policyIss.filter((_,i)=>i%sl===0),color:C.orange}]);
+
+  lineChart('ch-convTrend',D.dates.filter((_,i)=>i%sl===0),
+    [{label:'Conversion %',data:D.convRate.filter((_,i)=>i%sl===0),color:C.green},
+     {label:'Abandonment %',data:D.convRate.map(v=>+(100-v).toFixed(1)).filter((_,i)=>i%sl===0),color:C.red}],
+    {y:{max:100,min:0}});
+
+  lineChart('ch-revTrend',D.dates.filter((_,i)=>i%sl===0),
+    [{label:'Premium Collected',data:D.premium.filter((_,i)=>i%sl===0),color:C.navy},
+     {label:'Claims',data:D.claimsAmt.filter((_,i)=>i%sl===0),color:C.red}]);
+
+  funnel('exec-funnel',['Quote Generated','Proposal Started','Docs Uploaded','Underwriting','Payment','Policy Issued'],
+    [totalQuotes, Math.round(totalQuotes*.74), Math.round(totalQuotes*.49), Math.round(totalQuotes*.39), Math.round(totalQuotes*.17), totalPolicies],
+    [C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+
+  lineChart('ch-manualTrend',D.dates.filter((_,i)=>i%sl===0),
+    [{label:'Manual UW %',data:D.manualUWpct.filter((_,i)=>i%sl===0),color:C.amber},
+     {label:'AI Usage %',data:D.aiUsagePct.filter((_,i)=>i%sl===0),color:C.green}],
+    {y:{max:100,min:0}});
+
+  const targets=[{kpi:'Conversion Rate',curr:avgConv+'%',target:'21.8%',gap:(21.8-avgConv).toFixed(1)+'pp',status:avgConv>=21.8?'✓':'⚠'},
+    {kpi:'Abandonment Rate',curr:(100-avgConv).toFixed(1)+'%',target:'<78%',gap:'',status:'⚠'},
+    {kpi:'Manual UW %',curr:avgManual+'%',target:'<'+Math.round(avgManual*0.8)+'%',gap:'-20%',status:'⚠'},
+    {kpi:'Avg Journey Time',curr:avgJT+'h',target:'<'+Math.round(avgJT*0.75)+'h',gap:'-25%',status:'⚠'},
+    {kpi:'Claim Ratio',curr:claimRatio+'%',target:'<45%',gap:'',status:claimRatio<45?'✓':'⚠'}];
+  document.getElementById('kpi-vs-target').innerHTML=`<table class="matrix-table"><thead><tr><th>KPI</th><th>Current</th><th>Target</th><th>Gap</th><th>Status</th></tr></thead><tbody>${targets.map(t=>`<tr><td>${t.kpi}</td><td>${t.curr}</td><td>${t.target}</td><td>${t.gap}</td><td>${t.status==='✓'?'<span class="tag green">On Track</span>':'<span class="tag orange">Action Needed</span>'}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderSales(){
+  document.getElementById('sales-kpis').innerHTML=[
+    kpiCard('Total Quotes',sum(channelVol).toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Avg Conversion',((channelConv.reduce((a,b,i)=>a+b*channelVol[i],0)/sum(channelVol))).toFixed(1)+'%','orange','',''),
+    kpiCard('Avg Premium','₹5,540','','',''),
+    kpiCard('High Value Quotes','8,240','purple','',''),
+    kpiCard('Avg Days Since Contact','4.2d',4.2<5?'green':'amber','',''),
+    kpiCard('Top Channel','Direct','green','18.2% conv.','up'),
+  ].join('');
+
+  funnel('sales-funnel',['Quote Generated','Proposal Form','Documents','UW Review','Payment','Issued'],
+    [97655,72400,48200,38600,16400,11200],
+    [C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+
+  barChart('ch-byChannel',channels,[{label:'Conversion %',data:channelConv,color:channels.map((_,i)=>PALETTE[i])}]);
+  barChart('ch-byRegion',regions,[{label:'Conversion %',data:regionConv,color:C.navy}]);
+  barChart('ch-byAge',ages,[{label:'Conversion %',data:ageConv,color:C.orange}]);
+  barChart('ch-byDevice',devices,[{label:'Conversion %',data:deviceConv,color:C.purple}]);
+  histChart('ch-premDist',premBins,premCounts,C.navy);
+  barChart('ch-bySource',sources,[{label:'Conversion %',data:sourceConv,color:C.green}]);
+  pieChart('ch-byGender',genders,genderConv);
+
+  // Channel × Region Heatmap
+  const hmEl=document.getElementById('ch-heatmap');
+  const chs=['Direct','Aggregator','Broker'];
+  const rgs=['MH','KA','DL','TN'];
+  const hmVals=chs.map(()=>rgs.map(()=>+rnd(8,22).toFixed(1)));
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:60px repeat(${rgs.length},1fr)">`;
+  hmHtml+=`<div class="hm-header"></div>${rgs.map(r=>`<div class="hm-header">${r}</div>`).join('')}`;
+  chs.forEach((ch,ci)=>{
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${ch}</div>`;
+    rgs.forEach((_,ri)=>{
+      const v=hmVals[ci][ri];
+      const intensity=Math.round((v-8)/14*100);
+      const bg=`rgba(0,48,87,${0.15+intensity/100*0.6})`;
+      const col=intensity>50?'#fff':'#003057';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col}">${v}%</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+function renderJourney(){
+  document.getElementById('journey-kpis').innerHTML=[
+    kpiCard('Total Sessions','97,655','navy','',''),
+    kpiCard('Completion Rate','11.5%','orange','',''),
+    kpiCard('Avg Session Time','38 min','','',''),
+    kpiCard('Top Exit: Premium','38%','red','',''),
+    kpiCard('AI-Assisted Conv.','22.4%','green','vs 8.8% unassisted','up'),
+    kpiCard('Mobile Drop %','68%','amber','highest friction','neu'),
+  ].join('');
+
+  funnel('journey-funnel',journeyStages,journeyVols);
+
+  const dropoffs=journeyVols.slice(1).map((v,i)=>Math.round((journeyVols[i]-v)/journeyVols[i]*100));
+  barChart('ch-dropoff',journeyStages.slice(1),[{label:'Drop-off %',data:dropoffs,color:C.red}]);
+  barChart('ch-stageTimes',journeyStages.slice(1),[{label:'Avg Time (hrs)',data:stageTimes.slice(1),color:C.amber}]);
+  pieChart('ch-exitReasons',exitReasons,exitCounts,[C.red,C.orange,C.purple,C.amber,C.ink2,C.ink3]);
+  barChart('ch-aiAssist',['With AI Assist','Without AI Assist'],
+    [{label:'Converted',data:[aiAssist.withAI[0],aiAssist.withoutAI[0]],color:C.orange},
+     {label:'Not Converted',data:[aiAssist.withAI[1],aiAssist.withoutAI[1]],color:C.line}]);
+
+  mkChart('ch-deviceJourney',{type:'bar',data:{labels:journeyStages,datasets:[
+    {label:'Mobile',data:deviceStages.Mobile,backgroundColor:C.navy,borderRadius:4},
+    {label:'Web',data:deviceStages.Web,backgroundColor:C.orange,borderRadius:4},
+    {label:'Broker',data:deviceStages.Broker,backgroundColor:C.green,borderRadius:4},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#EBF1F7'}}}}});
+
+  barChart('ch-trafficSource',trafficSources,[{label:'Conversion %',data:trafficConv,color:C.purple}]);
+}
+
+function renderC360(){
+  document.getElementById('c360-kpis').innerHTML=[
+    kpiCard('Total Customers','97,655','navy','',''),
+    kpiCard('Avg AI Interactions','2.4','orange','per customer','neu'),
+    kpiCard('Avg AI Confidence','84.2%','green','',''),
+    kpiCard('Avg Customer Rating','3.9/5','','',''),
+    kpiCard('Previously Insured','48.3%','purple','',''),
+    kpiCard('High Value Quotes','8.4%','amber','',''),
+  ].join('');
+
+  document.getElementById('c360-profile').innerHTML=`<div class="profile-card">
+    <div class="pc-name">Aggregate Customer View</div>
+    <div class="pc-sub">97,655 synthetic customer records · 1:1:1 cardinality · Age-percentile aligned</div>
+    <div class="pc-grid">
+      <div class="pc-field"><div class="pc-fk">Avg Age</div><div class="pc-fv">38.4 years</div></div>
+      <div class="pc-field"><div class="pc-fk">Top Region</div><div class="pc-fv">MH (Maharashtra)</div></div>
+      <div class="pc-field"><div class="pc-fk">Top Segment</div><div class="pc-fv">Existing Customer (48.3%)</div></div>
+      <div class="pc-field"><div class="pc-fk">Risk Profile</div><div class="pc-fv">Low: 42% · Med: 38% · High: 20%</div></div>
+      <div class="pc-field"><div class="pc-fk">Avg Risk Score</div><div class="pc-fv">44.2 / 100 (rule-based)</div></div>
+      <div class="pc-field"><div class="pc-fk">License Valid</div><div class="pc-fv">96.2% of customers</div></div>
+    </div>
+  </div>`;
+
+  pieChart('ch-riskDist',['Low Risk','Medium Risk','High Risk'],[42,38,20],[C.green,C.amber,C.red]);
+  pieChart('ch-prevIns',['Previously Insured','New Customer'],[48.3,51.7],[C.navy,C.orange]);
+
+  document.getElementById('c360-recs').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+      <div style="background:var(--s1);border-left:3px solid var(--red);border-radius:0 8px 8px 0;padding:8px 10px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink)">Manual Call — High Value Abandoned</div>
+        <div style="font-size:10.5px;color:var(--ink2);margin-top:2px">Rule: abandoned_sessions>0 AND high_value_quote=1 → Assign to senior agent</div>
+      </div>
+      <div style="background:var(--s1);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:8px 10px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink)">Offer Discount — Abandoned Quote</div>
+        <div style="font-size:10.5px;color:var(--ink2);margin-top:2px">Rule: quote_status='Abandoned' AND high_value_quote=1 → Send 10% discount via WhatsApp</div>
+      </div>
+      <div style="background:var(--s1);border-left:3px solid var(--green);border-radius:0 8px 8px 0;padding:8px 10px">
+        <div style="font-size:11px;font-weight:700;color:var(--ink)">Cross-sell: Health / Life</div>
+        <div style="font-size:10.5px;color:var(--ink2);margin-top:2px">Rule: converted=1 AND previously_insured=1 AND age_band IN ('36-45','46-55') → Nurture campaign</div>
+      </div>
+    </div>
+    <div class="data-source" style="margin-top:8px">Explicitly rule-based — not ML output</div>`;
+
+  barChart('ch-aiBySegment',['Existing Customer','New Customer'],
+    [{label:'Avg AI Confidence',data:[86.4,81.8],color:C.navy},
+     {label:'Avg Rating',data:[4.1,3.7],color:C.orange}]);
+  barChart('ch-journeyEvents',journeyStages,
+    [{label:'Journey Events',data:journeyVols.map(v=>Math.round(v*rnd(1.0,2.2))),color:C.purple}]);
+}
+
+function renderUW(){
+  document.getElementById('uw-kpis').innerHTML=[
+    kpiCard('Avg Review Time','28.4 min','orange','Target: -25%','neu'),
+    kpiCard('STP Rate','43.2%','green','Straight-through','up'),
+    kpiCard('Manual Review %','38.6%','amber','Target: <30%','neu'),
+    kpiCard('Approval Rate','91.4%','green','',''),
+    kpiCard('Fraud Flag Rate','5.6%','red','',''),
+    kpiCard('SLA Breach Rate','12.4%','red','',''),
+    kpiCard('Override Rate','8.2%','purple','AI vs Final decision','neu'),
+  ].join('');
+
+  histChart('ch-riskScore',riskBins,riskCounts,C.navy);
+  pieChart('ch-uwDecision',uwDecisions,uwDecVals);
+
+  // SLA Gauge (using canvas)
+  document.getElementById('uw-sla-gauge').innerHTML=`
+    <div style="text-align:center;padding:12px 0">
+      <div style="font-size:36px;font-weight:800;font-family:var(--mono);color:var(--red)">12.4%</div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px">SLA Breached</div>
+      <div style="margin-top:12px;background:var(--red2);border-radius:8px;padding:8px 12px">
+        <div style="font-size:10px;color:var(--red);font-weight:700">⚠ Action Required</div>
+        <div style="font-size:10px;color:var(--ink2);margin-top:2px">318 cases breach 48-hr SLA</div>
+      </div>
+      <div style="margin-top:8px;background:var(--green2);border-radius:8px;padding:8px 12px">
+        <div style="font-size:10px;color:var(--green);font-weight:700">✓ STP Target: 60%</div>
+        <div style="font-size:10px;color:var(--ink2);margin-top:2px">Current: 43.2% — gap: 16.8pp</div>
+      </div>
+    </div>`;
+
+  lineChart('ch-manualTrend2',uwTrendDates.filter((_,i)=>i%7===0),
+    [{label:'Manual Review %',data:manualTrend2.filter((_,i)=>i%7===0),color:C.amber}],
+    {y:{max:60,min:20}});
+
+  // AI vs Final Matrix
+  const matRows=['Auto Approve','Assisted Review','Senior UW'];
+  const matCols=['Auto Approve','Assisted Review','Senior UW','Reject'];
+  const matData={};
+  aiMatrix.forEach(r=>{ if(!matData[r.ai]) matData[r.ai]={}; matData[r.ai][r.final]=r.count; });
+  let matHtml=`<table class="matrix-table" style="margin-top:8px"><thead><tr><th>AI Rec. ↓ / Final →</th>${matCols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  matRows.forEach(row=>{
+    matHtml+=`<tr><td style="font-weight:700">${row}</td>`;
+    matCols.forEach(col=>{
+      const v=(matData[row]||{})[col]||0;
+      const isOverride=row!==col&&v>0;
+      matHtml+=`<td>${v>0?`<span class="cell-heat" style="background:${isOverride?'var(--amber2)':'var(--green2)'};color:${isOverride?'var(--amber)':'var(--green)'}">${v.toLocaleString('en-IN')}</span>`:'-'}</td>`;
+    });
+    matHtml+='</tr>';
+  });
+  matHtml+=`<tr style="font-size:10px"><td colspan="${matCols.length+1}" style="color:var(--ink3);padding-top:8px">Highlighted cells = AI override cases · Total overrides: 11,900 (8.2%)</td></tr>`;
+  matHtml+='</tbody></table>';
+  document.getElementById('uw-matrix').innerHTML=matHtml;
+
+  barChart('ch-uwByPerson',uwNames,[{label:'Avg Review Time (min)',data:reviewTimes,color:C.navy}]);
+  histChart('ch-fraudDist',fraudBins,fraudCounts,C.red);
+}
+
+function renderClaims(){
+  document.getElementById('claims-kpis').innerHTML=[
+    kpiCard('Total Claims','41,200','red','',''),
+    kpiCard('Claim Amount',fmt(sum(claimAmtArr)*1000),'red','',''),
+    kpiCard('Claim Ratio','42.8%','amber','<45% target','up'),
+    kpiCard('Avg Settlement','18.4 days','','',''),
+    kpiCard('Fraud Flag %','5.6%','red','',''),
+    kpiCard('Claim Approval %','84.8%','green','',''),
+  ].join('');
+
+  lineChart('ch-claimTrend',claimDates.filter((_,i)=>i%14===0),
+    [{label:'Claim Amount (₹)',data:claimAmtArr.filter((_,i)=>i%14===0),color:C.red,fill:'rgba(220,38,38,0.07)',extra:{fill:true}}]);
+
+  pieChart('ch-claimSeverity',claimSeverity,claimSevVals,[C.green,C.amber,C.orange,C.red]);
+  histChart('ch-settlementDist',settleDays,settleVals,C.navy);
+  pieChart('ch-fraudRisk',fraudRisk,fraudRiskVals,[C.green,C.amber,C.orange,C.red]);
+  barChart('ch-segClaims',vehicleSegs,[{label:'Claim Count',data:segClaimCounts,color:C.navy}]);
+  barChart('ch-safetyVsClaims',safetyRatings,[{label:'Claim Count',data:safetyClaimCounts,color:C.orange}]);
+
+  // Claims Heatmap — Segment × Fuel Type
+  const hmEl=document.getElementById('claims-heatmap');
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:70px repeat(${fuelTypes.length},1fr);margin-top:8px">`;
+  hmHtml+=`<div class="hm-header"></div>${fuelTypes.map(f=>`<div class="hm-header">${f}</div>`).join('')}`;
+  vehicleSegs.forEach((seg,si)=>{
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${seg}</div>`;
+    fuelTypes.forEach((_,fi)=>{
+      const v=claimsHeatData.vals[si][fi];
+      const intensity=Math.round((v-800)/3400*100);
+      const bg=`rgba(220,38,38,${0.08+intensity/100*0.55})`;
+      const col=intensity>55?'#fff':'#7f1d1d';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col}">${v.toLocaleString('en-IN')}</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+function renderAI(){
+  document.getElementById('ai-kpis').innerHTML=[
+    kpiCard('Total AI Sessions','234,820','navy','',''),
+    kpiCard('Avg Confidence','84.2%','green','',''),
+    kpiCard('Escalation Rate','14.8%','amber','',''),
+    kpiCard('Resolution Rate','79.4%','green','',''),
+    kpiCard('Avg Rating','3.9/5','','',''),
+    kpiCard('Avg Latency','348 ms','','',''),
+    kpiCard('Total Tokens',fmt(sum(tokenTrend)),'purple','',''),
+  ].join('');
+
+  histChart('ch-confDist',confBins,confCounts,C.green);
+  pieChart('ch-qCategory',qCats,qCatCounts);
+  barChart('ch-escalByCategory',qCats,
+    [{label:'Escalation %',data:escalByCategory,color:C.orange}]);
+
+  lineChart('ch-respTimeTrend',aiDates.filter((_,i)=>i%5===0),
+    [{label:'Avg Response Time (ms)',data:respTimeTrend.filter((_,i)=>i%5===0),color:C.navy}]);
+
+  mkChart('ch-sentimentTrend',{type:'line',data:{labels:sentDates.filter((_,i)=>i%5===0),datasets:[
+    {label:'Positive',data:sentPos.filter((_,i)=>i%5===0),borderColor:C.green,backgroundColor:'rgba(22,163,74,0.1)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Neutral',data:sentNeu.filter((_,i)=>i%5===0),borderColor:C.amber,backgroundColor:'rgba(217,119,6,0.08)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Negative',data:sentNeg.filter((_,i)=>i%5===0),borderColor:C.red,backgroundColor:'rgba(220,38,38,0.07)',tension:0.35,pointRadius:0,fill:true},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{grid:{display:false}},y:{stacked:false,grid:{color:'#EBF1F7'}}}}});
+
+  barChart('ch-modelPerf',models,[{label:'Avg Quality Score',data:modelScores,color:[C.navy,C.orange,C.purple]}]);
+
+  lineChart('ch-tokenTrend',aiDates.filter((_,i)=>i%5===0),
+    [{label:'Tokens Used',data:tokenTrend.filter((_,i)=>i%5===0),color:C.purple}]);
+}
+
+function renderReco(){
+  const recs=[
+    {pri:'high',finding:'38.6% of quotes require manual underwriting review',rec:'Deploy Underwriting Auto-Pilot: rule-based STP for Low-risk profiles, telematics pathway for Medium. Target: reduce manual UW to 30% within 90 days.',impact:'₹3.1Cr annual savings (20% reduction × 97,655 cases × ₹800 UW cost)'},
+    {pri:'high',finding:'38% of abandonments cite premium as too high vs peer segment',rec:'Activate Dynamic Pricing Agent: auto-apply telematics + loyalty + low-mileage discounts for eligible customers. Target: recover 15% of price-abandoned quotes.',impact:'₹8.4Cr additional premium (15% × 38% × 11,200 policies × ₹13,200 avg)'},
+    {pri:'med',finding:'Document upload friction causes 24% of all drop-offs',rec:'Integrate DigiLocker API for RC/licence verification. Remove manual upload requirement for 80% of cases. Target: -40% doc-stage abandonment.',impact:'₹2.8Cr recovered premium (from 2,784 additional conversions)'},
+    {pri:'med',finding:'SLA breach rate of 12.4% — 318 cases > 48-hr underwriting SLA',rec:'Set automated SLA alerts at 24 hrs. Assign breach-risk cases to next available UW. Target: SLA breach rate < 5%.',impact:'₹1.2Cr prevented lapse (customer lifetime value × breach-to-lapse correlation)'},
+    {pri:'low',finding:'Direct channel converts at 18.2% vs 8.4% aggregator — 2.2× better',rec:'Shift 15% of aggregator budget to direct digital channel. Retarget aggregator leads within 24 hrs via WhatsApp.',impact:'₹4.6Cr revenue uplift (improved channel mix × conversion differential)'},
+    {pri:'low',finding:'AI-assisted quotes convert at 22.4% vs 8.8% unassisted — 2.5× better',rec:'Expand AI chat coverage to all quote stages. Target: 60% of all quotes get AI assistance (current: 24%).',impact:'₹6.2Cr revenue uplift (36pp AI coverage increase × 13.6pp conversion uplift)'},
+  ];
+  document.getElementById('rec-cards').innerHTML=recs.map(r=>`<div class="rec-card">
+    <div class="rc-priority ${r.pri}">${r.pri.toUpperCase()} PRIORITY</div>
+    <div class="rc-finding">${r.finding}</div>
+    <div class="rc-rec">${r.rec}</div>
+    <div class="rc-impact">${r.impact}</div>
+  </div>`).join('');
+
+  calcROI();
+
+  barChart('ch-kpiTarget',['Conversion Rate','Abandonment','Policy TAT','Manual UW %'],
+    [{label:'Current',data:[11.8,88.2,65,38.6],color:C.navy},
+     {label:'Target',data:[21.8,70,48.75,30.9],color:C.orange}]);
+
+  document.getElementById('agent-contrib').innerHTML=`<table class="matrix-table" style="margin-top:8px">
+    <thead><tr><th>KPI Target</th><th>Primary Agents</th><th>Expected Uplift</th></tr></thead>
+    <tbody>
+      <tr><td>+10% Conversion</td><td><span class="tag navy">Propensity</span> <span class="tag orange">Engagement</span> <span class="tag purple">NBA</span></td><td><span class="tag green">+10pp</span></td></tr>
+      <tr><td>-20% Abandonment</td><td><span class="tag navy">Journey</span> <span class="tag orange">Root Cause</span> <span class="tag purple">Engagement</span></td><td><span class="tag green">-18.2pp</span></td></tr>
+      <tr><td>-25% Policy TAT</td><td><span class="tag navy">UW Auto-Pilot</span> <span class="tag orange">Issuance Agent</span></td><td><span class="tag amber">-16.25 hrs</span></td></tr>
+      <tr><td>-20% Manual UW</td><td><span class="tag navy">UW Auto-Pilot</span> <span class="tag orange">Document FastTrack</span></td><td><span class="tag green">-7.7pp</span></td></tr>
+    </tbody>
+  </table>`;
+}
+
+function calcROI(){
+  const curr=+document.getElementById('roi-curr').value||11.8;
+  const tgt=+document.getElementById('roi-target').value||21.8;
+  const prem=+document.getElementById('roi-prem').value||5540;
+  const vol=+document.getElementById('roi-vol').value||97655;
+  const uwCost=+document.getElementById('roi-uwcost').value||800;
+  const uwRed=+document.getElementById('roi-uwred').value||20;
+
+  const addlPolicies=Math.round(vol*(tgt-curr)/100);
+  const addlRevenue=Math.round(addlPolicies*prem);
+  const uwSavings=Math.round(vol*(uwRed/100)*uwCost);
+  const totalBenefit=addlRevenue+uwSavings;
+
+  document.getElementById('roi-results').innerHTML=[
+    `<div class="rr-card"><div class="rr-val">${addlPolicies.toLocaleString('en-IN')}</div><div class="rr-label">Additional Policies</div></div>`,
+    `<div class="rr-card"><div class="rr-val">${fmt(addlRevenue)}</div><div class="rr-label">Incremental Revenue</div></div>`,
+    `<div class="rr-card"><div class="rr-val">${fmt(uwSavings)}</div><div class="rr-label">UW Cost Savings</div></div>`,
+    `<div class="rr-card"><div class="rr-val">${fmt(totalBenefit)}</div><div class="rr-label">Total Annual Benefit</div></div>`,
+  ].join('');
+}
+
+/* ══════════════════════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════════════════════ */
+const RENDERERS = {exec:renderExec,sales:renderSales,journey:renderJourney,c360:renderC360,uw:renderUW,claims:renderClaims,ai:renderAI,reco:renderReco};
+const rendered = new Set();
+
+function showTab(key){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('page-'+key).classList.add('active');
+  if(!rendered.has(key)){
+    RENDERERS[key]&&RENDERERS[key]();
+    rendered.add(key);
+  }
+}
+
+function refreshAllCharts(){
+  // re-render all tabs that have been viewed
+  const wasRendered = new Set(rendered);
+  rendered.clear();
+  // always re-render exec
+  renderExec(); rendered.add('exec');
+  // re-render any other tab already visited
+  wasRendered.forEach(k=>{ if(k!=='exec'){ const fn={sales:renderSales,journey:renderJourney,c360:renderC360,uw:renderUW,claims:renderClaims,ai:renderAI,reco:renderReco}[k]; if(fn){try{fn();rendered.add(k);}catch(e){dbg(k+' re-render error: '+e.message,'#f87171');}}}});
+  dbg('All charts refreshed with live data','#4ade80');
+}
+
+/* ══════════════════════════════════════════════════════
+   REAL DATA EXTRACTORS
+   Each function tries DATA.uploaded first, falls back to synthetic
+══════════════════════════════════════════════════════ */
+
+function col(rows, key){ return rows.map(r=>r[key]).filter(v=>v!=null&&v!=='').map(v=>{ if(v===true||v==='True'||v==='true') return 1; if(v===false||v==='False'||v==='false') return 0; return Number(v); }).filter(v=>!isNaN(v)); }
+function colStr(rows, key){ return rows.map(r=>String(r[key]||'').trim()).filter(v=>v&&v!=='nan'&&v!=='None'&&v!=='null'); }
+function colUnique(rows, key){ return [...new Set(colStr(rows,key))]; }
+// normalise a flag field that may be 0/1 or True/False string
+function isTrue(v){ return v===1||v===true||v==='1'||v==='True'||v==='true'; }
+function groupSum(rows, groupKey, valKey){
+  const m={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null) m[g]=(m[g]||0)+(Number(r[valKey])||0); }); return m;
+}
+function groupAvg(rows, groupKey, valKey){
+  const m={}; const c={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null){ m[g]=(m[g]||0)+(Number(r[valKey])||0); c[g]=(c[g]||0)+1; }}); 
+  const out={}; Object.keys(m).forEach(k=>out[k]=m[k]/c[k]); return out;
+}
+function groupCount(rows, groupKey){
+  const m={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null) m[g]=(m[g]||0)+1; }); return m;
+}
+function convRateByGroup(rows, groupKey){
+  const tot=groupCount(rows,groupKey);
+  const conv=groupCount(rows.filter(r=>isTrue(r.conversion_flag)),groupKey);
+  const out={}; Object.keys(tot).forEach(k=>out[k]=+((100*(conv[k]||0)/tot[k]).toFixed(1))); return out;
+}
+function byDate(rows, dateKey, valKey, agg='sum'){
+  const m={}; const c={};
+  rows.forEach(r=>{ const d=String(r[dateKey]||'').slice(0,10); if(!d||d==='') return; m[d]=(m[d]||0)+(Number(r[valKey])||0); c[d]=(c[d]||0)+1; });
+  if(agg==='avg') Object.keys(m).forEach(k=>m[k]=m[k]/c[k]);
+  return m;
+}
+function sortedDateMap(m, maxPts=30){
+  const keys=Object.keys(m).sort(); const step=Math.max(1,Math.floor(keys.length/maxPts));
+  const sk=keys.filter((_,i)=>i%step===0); return {dates:sk, vals:sk.map(k=>+m[k].toFixed(2))};
+}
+
+/* ══════════════════════════════════════════════════════
+   OVERRIDE RENDER FUNCTIONS WITH REAL DATA WHEN AVAILABLE
+══════════════════════════════════════════════════════ */
+
+const _renderExecOrig = renderExec;
+function renderExec(){
+  const rows = DATA.uploaded.exec;
+  if(!rows||!rows.length){ _renderExecOrig(); return; }
+
+  const totalQuotes   = sum(col(rows,'quote_volume'));
+  const totalPolicies = sum(col(rows,'policies_issued'));
+  const avgConv       = +(avg(col(rows,'conversion_rate'))).toFixed(1);
+  const totalPremium  = sum(col(rows,'premium_collected'));
+  const totalClaims   = sum(col(rows,'claim_amount'))||sum(col(rows,'claims_paid'));
+  const claimRatio    = +(avg(col(rows,'claim_ratio'))).toFixed(1);
+  const avgManual     = +(avg(col(rows,'manual_underwriting_pct'))).toFixed(0);
+  const avgSat        = +(avg(col(rows,'customer_satisfaction'))).toFixed(1);
+  const avgJT         = +(avg(col(rows,'average_journey_time'))).toFixed(0);
+
+  document.getElementById('exec-kpis').innerHTML=[
+    kpiCard('Quote Volume',totalQuotes.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Policies Issued',totalPolicies.toLocaleString('en-IN'),'green','Target: +10%','neu'),
+    kpiCard('Conversion Rate',avgConv+'%','orange',avgConv>=21?'▲ Target met':'▼ Target: 21.8%',avgConv>=21?'up':'dn'),
+    kpiCard('Abandonment Rate',(100-avgConv).toFixed(1)+'%','red','',''),
+    kpiCard('Premium Collected',fmt(totalPremium),'navy','premium × (1+adj%)','neu'),
+    kpiCard('Claims Paid',fmt(totalClaims),'','',''),
+    kpiCard('Claim Ratio',claimRatio+'%',claimRatio<45?'green':'red','',''),
+    kpiCard('Manual UW %',avgManual+'%',avgManual<35?'green':'amber','Target: -20%','neu'),
+    kpiCard('Cust. Satisfaction',avgSat+'/5','green','',''),
+    kpiCard('Avg Journey (hrs)',avgJT+'h',avgJT<60?'green':'amber','Target: -25% TAT','neu'),
+  ].join('');
+
+  const qt=sortedDateMap(byDate(rows,'date','quote_volume'));
+  const pi=sortedDateMap(byDate(rows,'date','policies_issued'));
+  lineChart('ch-quoteTrend',qt.dates,[{label:'Quotes',data:qt.vals,color:C.navy},{label:'Policies Issued',data:pi.vals,color:C.orange}]);
+
+  const cr=sortedDateMap(byDate(rows,'date','conversion_rate','avg'));
+  lineChart('ch-convTrend',cr.dates,[
+    {label:'Conversion %',data:cr.vals,color:C.green},
+    {label:'Abandonment %',data:cr.vals.map(v=>+(100-v).toFixed(1)),color:C.red}],{y:{max:100,min:0}});
+
+  const pr=sortedDateMap(byDate(rows,'date','premium_collected'));
+  const claimCol = col(rows,'claims_paid').some(v=>v>0) ? 'claims_paid' : 'claim_amount';
+  const cl=sortedDateMap(byDate(rows,'date',claimCol));
+  lineChart('ch-revTrend',pr.dates,[{label:'Premium',data:pr.vals,color:C.navy},{label:'Claims',data:cl.vals,color:C.red}]);
+
+  const mu=sortedDateMap(byDate(rows,'date','manual_underwriting_pct','avg'));
+  const ai=sortedDateMap(byDate(rows,'date','ai_usage','avg'));
+  lineChart('ch-manualTrend',mu.dates,[{label:'Manual UW %',data:mu.vals,color:C.amber},{label:'AI Usage %',data:ai.vals,color:C.green}],{y:{max:100,min:0}});
+
+  // Funnel from journey data if available
+  const jr = DATA.uploaded.journey;
+  if(jr&&jr.length){
+    const stages=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+    const stageCounts=stages.map(s=>jr.filter(r=>r.stage_name===s&&(r.completed_flag==1||r.completed_flag==='1'||r.completed_flag===true)).length||jr.filter(r=>r.stage_name===s).length);
+    const nonZero=stageCounts.some(v=>v>0);
+    funnel('exec-funnel',stages,nonZero?stageCounts:[totalQuotes,Math.round(totalQuotes*.74),Math.round(totalQuotes*.49),Math.round(totalQuotes*.39),Math.round(totalQuotes*.17),totalPolicies],[C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+  } else {
+    funnel('exec-funnel',['Quote Generated','Proposal Started','Docs Uploaded','Underwriting','Payment','Policy Issued'],[totalQuotes,Math.round(totalQuotes*.74),Math.round(totalQuotes*.49),Math.round(totalQuotes*.39),Math.round(totalQuotes*.17),totalPolicies],[C.navy,C.navy2,'#2E6EA6','#3D8BC9','#52A8E8',C.orange]);
+  }
+
+  const targets=[
+    {kpi:'Conversion Rate',curr:avgConv+'%',target:'21.8%',gap:(21.8-avgConv).toFixed(1)+'pp',status:avgConv>=21.8?'✓':'⚠'},
+    {kpi:'Abandonment Rate',curr:(100-avgConv).toFixed(1)+'%',target:'<78%',gap:'',status:'⚠'},
+    {kpi:'Manual UW %',curr:avgManual+'%',target:'<'+Math.round(avgManual*0.8)+'%',gap:'-20%',status:'⚠'},
+    {kpi:'Avg Journey Time',curr:avgJT+'h',target:'<'+Math.round(avgJT*0.75)+'h',gap:'-25%',status:'⚠'},
+    {kpi:'Claim Ratio',curr:claimRatio+'%',target:'<45%',gap:'',status:claimRatio<45?'✓':'⚠'}
+  ];
+  document.getElementById('kpi-vs-target').innerHTML=`<table class="matrix-table"><thead><tr><th>KPI</th><th>Current</th><th>Target</th><th>Gap</th><th>Status</th></tr></thead><tbody>${targets.map(t=>`<tr><td>${t.kpi}</td><td>${t.curr}</td><td>${t.target}</td><td>${t.gap}</td><td>${t.status==='✓'?'<span class="tag green">On Track</span>':'<span class="tag orange">Action Needed</span>'}</td></tr>`).join('')}</tbody></table>`;
+}
+
+const _renderSalesOrig = renderSales;
+function renderSales(){
+  const rows = DATA.uploaded.sales;
+  if(!rows||!rows.length){ _renderSalesOrig(); return; }
+
+  const totalQ = rows.length;
+  const convRows = rows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1');
+  const avgConv = +(100*convRows.length/totalQ).toFixed(1);
+  const avgPrem = +(avg(col(rows,'quoted_premium'))).toFixed(0);
+
+  document.getElementById('sales-kpis').innerHTML=[
+    kpiCard('Total Quotes',totalQ.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Avg Conversion',avgConv+'%','orange','',''),
+    kpiCard('Avg Premium',fmtRs(avgPrem),'','',''),
+    kpiCard('High Value Quotes',rows.filter(r=>isTrue(r.high_value_quote)).length.toLocaleString('en-IN'),'purple','',''),
+    kpiCard('Avg Days Since Contact',+(avg(col(rows,'days_since_last_contact'))).toFixed(1)+'d','','',''),
+  ].join('');
+
+  // Channel conversion — filter blank channel_name rows
+  const salesRows = rows.filter(r=>r.channel_name&&String(r.channel_name).trim()!='');
+  const chConvMap = convRateByGroup(salesRows,'channel_name');
+  const chKeys = Object.keys(chConvMap);
+  barChart('ch-byChannel',chKeys,[{label:'Conversion %',data:chKeys.map(k=>chConvMap[k]),color:chKeys.map((_,i)=>PALETTE[i])}]);
+
+  // Region — normalise float regions (24.0 -> "24")
+  const rowsWithRegion = rows.map(r=>({...r, _region: String(Math.round(Number(r.region)||0))}));
+  const rgConvMap = convRateByGroup(rowsWithRegion,'_region');
+  const rgKeys = Object.keys(rgConvMap).sort((a,b)=>Number(a)-Number(b)).slice(0,12);
+  barChart('ch-byRegion',rgKeys.map(k=>'Region '+k),[{label:'Conversion %',data:rgKeys.map(k=>rgConvMap[k]),color:C.navy}]);
+
+  // Age band — bin customer_age since age_band not in sales mart
+  const ageBands=['18-25','26-35','36-45','46-55','56-65','66+'];
+  const ageBinRow = rows.map(r=>{
+    const a=Number(r.customer_age)||0;
+    return {...r, _age_band: a<=25?'18-25':a<=35?'26-35':a<=45?'36-45':a<=55?'46-55':a<=65?'56-65':'66+'};
+  });
+  const ageConvMap = convRateByGroup(ageBinRow,'_age_band');
+  const ageKeys = ageBands.filter(k=>ageConvMap[k]!=null);
+  barChart('ch-byAge',ageKeys,[{label:'Conversion %',data:ageKeys.map(k=>ageConvMap[k]),color:C.orange}]);
+
+  // Device
+  const devConvMap = convRateByGroup(rows,'device_type');
+  const devKeys = Object.keys(devConvMap);
+  barChart('ch-byDevice',devKeys,[{label:'Conversion %',data:devKeys.map(k=>devConvMap[k]),color:C.purple}]);
+
+  // Premium distribution — bucket quoted_premium
+  const prems = col(rows,'quoted_premium').filter(v=>v>0);
+  const bins=['<3K','3-5K','5-8K','8-12K','12-20K','>20K'];
+  const binCounts=[prems.filter(v=>v<3000).length,prems.filter(v=>v>=3000&&v<5000).length,prems.filter(v=>v>=5000&&v<8000).length,prems.filter(v=>v>=8000&&v<12000).length,prems.filter(v=>v>=12000&&v<20000).length,prems.filter(v=>v>=20000).length];
+  histChart('ch-premDist',bins,binCounts,C.navy);
+
+  // Quote source
+  const srcConvMap = convRateByGroup(rows,'quote_source');
+  const srcKeys = Object.keys(srcConvMap);
+  barChart('ch-bySource',srcKeys,[{label:'Conversion %',data:srcKeys.map(k=>srcConvMap[k]),color:C.green}]);
+
+  // Gender
+  const genConvMap = convRateByGroup(rows,'gender');
+  const genKeys = Object.keys(genConvMap);
+  pieChart('ch-byGender',genKeys,genKeys.map(k=>genConvMap[k]));
+
+  // Funnel — count rows at each quote_stage
+  const stageOrder=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+  const stageMap=groupCount(rows,'quote_stage');
+  const stageCounts=stageOrder.map(s=>stageMap[s]||0);
+  const hasStageData=stageCounts.some(v=>v>0);
+  if(hasStageData){
+    funnel('sales-funnel',stageOrder,stageCounts);
+  } else {
+    funnel('sales-funnel',['Quote Generated','Proposal Started','Docs Uploaded','UW Review','Payment','Issued'],
+      [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)]);
+  }
+
+  // Heatmap
+  const hmEl=document.getElementById('ch-heatmap');
+  const chs=chKeys.slice(0,4); const rgs=rgKeys.slice(0,5);
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:70px repeat(${rgs.length},1fr)">`;
+  hmHtml+=`<div class="hm-header"></div>${rgs.map(r=>`<div class="hm-header">${r}</div>`).join('')}`;
+  chs.forEach(ch=>{
+    const chRows=rows.filter(r=>r.channel_name===ch);
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${ch}</div>`;
+    rgs.forEach(rg=>{
+      const rgRows=chRows.filter(r=>r.region===rg);
+      const v=rgRows.length?+(100*rgRows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1').length/rgRows.length).toFixed(1):0;
+      const intensity=Math.round(v/25*100);
+      const bg=`rgba(0,48,87,${0.1+Math.min(intensity,100)/100*0.65})`;
+      const col2=intensity>55?'#fff':'#003057';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col2}">${v}%</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+const _renderUWOrig = renderUW;
+function renderUW(){
+  const rows = DATA.uploaded.uw;
+  if(!rows||!rows.length){ _renderUWOrig(); return; }
+
+  const avgReview = +(avg(col(rows,'review_time_minutes'))).toFixed(1);
+  const stpRate   = +(100*rows.filter(r=>isTrue(r.stp_flag)).length/rows.length).toFixed(1);
+  const manualPct = +(100*rows.filter(r=>isTrue(r.manual_review_flag)).length/rows.length).toFixed(1);
+  const approvalPct = +(100*rows.filter(r=>/approv/i.test(r.underwriting_decision||'')).length/rows.length).toFixed(1);
+  const fraudPct  = +(100*rows.filter(r=>isTrue(r.fraud_flag)).length/rows.length).toFixed(1);
+  const slaPct    = +(100*rows.filter(r=>isTrue(r.sla_breached_flag)).length/rows.length).toFixed(1);
+
+  document.getElementById('uw-kpis').innerHTML=[
+    kpiCard('Avg Review Time',avgReview+' min','orange','Target: -25%','neu'),
+    kpiCard('STP Rate',stpRate+'%','green','Straight-through','up'),
+    kpiCard('Manual Review %',manualPct+'%','amber','Target: <30%','neu'),
+    kpiCard('Approval Rate',approvalPct+'%','green','',''),
+    kpiCard('Fraud Flag Rate',fraudPct+'%','red','',''),
+    kpiCard('SLA Breach Rate',slaPct+'%',slaPct>10?'red':'green','',''),
+  ].join('');
+
+  // Risk score histogram
+  const rScores = col(rows,'risk_score');
+  const rBins=['0-20','21-40','41-60','61-80','81-100'];
+  const rCounts=[rScores.filter(v=>v<=20).length,rScores.filter(v=>v>20&&v<=40).length,rScores.filter(v=>v>40&&v<=60).length,rScores.filter(v=>v>60&&v<=80).length,rScores.filter(v=>v>80).length];
+  histChart('ch-riskScore',rBins,rCounts,C.navy);
+
+  // Decision breakdown
+  const decMap = groupCount(rows,'underwriting_decision');
+  const decKeys = Object.keys(decMap);
+  pieChart('ch-uwDecision',decKeys,decKeys.map(k=>decMap[k]));
+
+  // Manual review trend
+  // underwriting_date_sk is a numeric key — try to match to exec dates via index
+  const uwManualByDay={}; const uwDayCount={};
+  rows.forEach(r=>{ const sk=r.underwriting_date_sk; if(sk){ uwManualByDay[sk]=(uwManualByDay[sk]||0)+(Number(r.manual_review_flag)||0); uwDayCount[sk]=(uwDayCount[sk]||0)+1; }});
+  const uwSkKeys=Object.keys(uwManualByDay).sort((a,b)=>a-b);
+  const uwStep=Math.max(1,Math.floor(uwSkKeys.length/20));
+  const uwSk=uwSkKeys.filter((_,i)=>i%uwStep===0);
+  lineChart('ch-manualTrend2',uwSk.map(k=>'SK-'+k),[{label:'Manual Review %',data:uwSk.map(k=>+(100*uwManualByDay[k]/uwDayCount[k]).toFixed(1)),color:C.amber}],{y:{max:100,min:0}});
+
+  // AI vs Final matrix
+  const aiRecs = colUnique(rows,'recommendation'); const finals = colUnique(rows,'underwriting_decision');
+  const matData={};
+  rows.forEach(r=>{ const a=r.recommendation; const f=r.underwriting_decision; if(a&&f){ if(!matData[a])matData[a]={}; matData[a][f]=(matData[a][f]||0)+1; }});
+  let matHtml=`<table class="matrix-table" style="margin-top:8px"><thead><tr><th>AI Rec ↓ / Final →</th>${finals.map(f=>`<th>${f}</th>`).join('')}</tr></thead><tbody>`;
+  aiRecs.forEach(a=>{
+    matHtml+=`<tr><td style="font-weight:700">${a}</td>`;
+    finals.forEach(f=>{ const v=(matData[a]||{})[f]||0; const override=a!==f&&v>0; matHtml+=`<td>${v>0?`<span class="cell-heat" style="background:${override?'var(--amber2)':'var(--green2)'};color:${override?'var(--amber)':'var(--green)'}">${v.toLocaleString('en-IN')}</span>`:'-'}</td>`; });
+    matHtml+='</tr>';
+  });
+  const totalOverrides=rows.filter(r=>r.recommendation&&r.underwriting_decision&&r.recommendation!==r.underwriting_decision).length;
+  matHtml+=`<tr><td colspan="${finals.length+1}" style="font-size:10px;color:var(--ink3);padding-top:8px">Override cases: ${totalOverrides.toLocaleString('en-IN')} (${+(100*totalOverrides/rows.length).toFixed(1)}%)</td></tr></tbody></table>`;
+  document.getElementById('uw-matrix').innerHTML=matHtml;
+
+  // Review time by underwriter
+  const uwMap=groupAvg(rows,'underwriter','review_time_minutes');
+  const uwKeys=Object.keys(uwMap).slice(0,8);
+  barChart('ch-uwByPerson',uwKeys,[{label:'Avg Review Time (min)',data:uwKeys.map(k=>+uwMap[k].toFixed(1)),color:C.navy}]);
+
+  // Fraud dist
+  const fp=col(rows,'fraud_probability');
+  const fBins=['0-0.2','0.2-0.4','0.4-0.6','0.6-0.8','0.8-1.0'];
+  const fCounts=[fp.filter(v=>v<=.2).length,fp.filter(v=>v>.2&&v<=.4).length,fp.filter(v=>v>.4&&v<=.6).length,fp.filter(v=>v>.6&&v<=.8).length,fp.filter(v=>v>.8).length];
+  histChart('ch-fraudDist',fBins,fCounts,C.red);
+
+  document.getElementById('uw-sla-gauge').innerHTML=`<div style="text-align:center;padding:12px 0">
+    <div style="font-size:36px;font-weight:800;font-family:var(--mono);color:${slaPct>10?'var(--red)':'var(--green)'}">${slaPct}%</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:4px">SLA Breached</div>
+    <div style="margin-top:10px;background:var(--${slaPct>10?'red':'green'}2);border-radius:8px;padding:8px 12px">
+      <div style="font-size:10px;color:var(--${slaPct>10?'red':'green'});font-weight:700">${slaPct>10?'⚠ Action Required':'✓ Within Target'}</div>
+      <div style="font-size:10px;color:var(--ink2);margin-top:2px">${Math.round(rows.length*slaPct/100)} cases breach 48-hr SLA</div>
+    </div>
+    <div style="margin-top:8px;background:var(--green2);border-radius:8px;padding:8px 12px">
+      <div style="font-size:10px;color:var(--green);font-weight:700">✓ STP Rate: ${stpRate}%</div>
+      <div style="font-size:10px;color:var(--ink2);margin-top:2px">Target: 60% · Gap: ${+(60-stpRate).toFixed(1)}pp</div>
+    </div>
+  </div>`;
+}
+
+const _renderClaimsOrig = renderClaims;
+function renderClaims(){
+  const rows = DATA.uploaded.claims;
+  if(!rows||!rows.length){ _renderClaimsOrig(); return; }
+
+  const totalClaims   = rows.length;
+  const totalAmt      = sum(col(rows,'claim_amount'));
+  const avgSettle     = +(avg(col(rows,'settlement_days'))).toFixed(1);
+  const fraudPct      = +(100*rows.filter(r=>isTrue(r.high_fraud)).length/rows.length).toFixed(1);
+  const approvedPct   = +(100*rows.filter(r=>isTrue(r.claim_approved)).length/rows.length).toFixed(1);
+
+  document.getElementById('claims-kpis').innerHTML=[
+    kpiCard('Total Claims',totalClaims.toLocaleString('en-IN'),'red','',''),
+    kpiCard('Claim Amount',fmt(totalAmt),'red','',''),
+    kpiCard('Avg Settlement',avgSettle+' days','','',''),
+    kpiCard('Fraud Flag %',fraudPct+'%','red','',''),
+    kpiCard('Claim Approval %',approvedPct+'%','green','',''),
+  ].join('');
+
+  const ct=sortedDateMap(byDate(rows,'date','claim_amount'));
+  lineChart('ch-claimTrend',ct.dates,[{label:'Claim Amount (₹)',data:ct.vals,color:C.red,fill:'rgba(220,38,38,0.07)',extra:{fill:true}}]);
+
+  const sevMap=groupCount(rows,'claim_severity'); const sevKeys=Object.keys(sevMap);
+  pieChart('ch-claimSeverity',sevKeys,sevKeys.map(k=>sevMap[k]),[C.green,C.amber,C.orange,C.red]);
+
+  const sdMap=groupCount(rows,'settlement_band'); const sdKeys=Object.keys(sdMap);
+  histChart('ch-settlementDist',sdKeys,sdKeys.map(k=>sdMap[k]),C.navy);
+
+  const frMap=groupCount(rows,'fraud_risk'); const frKeys=Object.keys(frMap);
+  pieChart('ch-fraudRisk',frKeys,frKeys.map(k=>frMap[k]),[C.green,C.amber,C.orange,C.red]);
+
+  const segMap=groupCount(rows,'segment'); const segKeys=Object.keys(segMap).slice(0,8);
+  barChart('ch-segClaims',segKeys,[{label:'Claim Count',data:segKeys.map(k=>segMap[k]),color:C.navy}]);
+
+  const srMap=groupCount(rows,'safety_rating'); const srKeys=Object.keys(srMap);
+  barChart('ch-safetyVsClaims',srKeys,[{label:'Claim Count',data:srKeys.map(k=>srMap[k]),color:C.orange}]);
+
+  // Segment × Fuel heatmap
+  const segs=[...new Set(colStr(rows,'segment'))].slice(0,5);
+  const fuels=[...new Set(colStr(rows,'fuel_type'))].slice(0,4);
+  const hmEl=document.getElementById('claims-heatmap');
+  let hmHtml=`<div class="heatmap-grid" style="grid-template-columns:70px repeat(${fuels.length},1fr);margin-top:8px">`;
+  hmHtml+=`<div class="hm-header"></div>${fuels.map(f=>`<div class="hm-header">${f}</div>`).join('')}`;
+  segs.forEach(seg=>{
+    hmHtml+=`<div style="font-size:10px;color:var(--ink2);display:flex;align-items:center;padding:3px 0">${seg}</div>`;
+    fuels.forEach(fuel=>{
+      const v=rows.filter(r=>r.segment===seg&&r.fuel_type===fuel).length;
+      const maxV=rows.length/segs.length/fuels.length*2;
+      const intensity=Math.min(100,Math.round(v/maxV*100));
+      const bg=`rgba(220,38,38,${0.08+intensity/100*0.55})`;
+      const col2=intensity>55?'#fff':'#7f1d1d';
+      hmHtml+=`<div class="hm-cell" style="background:${bg};color:${col2}">${v.toLocaleString('en-IN')}</div>`;
+    });
+  });
+  hmHtml+='</div>';
+  hmEl.innerHTML=hmHtml;
+}
+
+const _renderAIOrig = renderAI;
+function renderAI(){
+  const rows = DATA.uploaded.ai;
+  if(!rows||!rows.length){ _renderAIOrig(); return; }
+
+  const totalSess  = rows.length;
+  const avgConf    = +(avg(col(rows,'confidence_score'))*100).toFixed(1);
+  const escalPct   = +(100*rows.filter(r=>isTrue(r.escalated_interaction)||isTrue(r.escalation_required)).length/rows.length).toFixed(1);
+  const resolPct   = +(100*rows.filter(r=>isTrue(r.resolved_interaction)||isTrue(r.resolved_flag)).length/rows.length).toFixed(1);
+  const avgRating  = +(avg(col(rows,'customer_rating'))).toFixed(1);
+  const avgLatency = +(avg(col(rows,'response_time_ms'))).toFixed(0);
+  const totalTokens= sum(col(rows,'token_count'));
+
+  document.getElementById('ai-kpis').innerHTML=[
+    kpiCard('Total AI Sessions',totalSess.toLocaleString('en-IN'),'navy','',''),
+    kpiCard('Avg Confidence',avgConf+'%','green','',''),
+    kpiCard('Escalation Rate',escalPct+'%','amber','',''),
+    kpiCard('Resolution Rate',resolPct+'%','green','',''),
+    kpiCard('Avg Rating',avgRating+'/5','','',''),
+    kpiCard('Avg Latency',avgLatency+' ms','','',''),
+    kpiCard('Total Tokens',fmt(totalTokens),'purple','',''),
+  ].join('');
+
+  // Confidence bins
+  const cs=col(rows,'confidence_score');
+  const cBins=['0.55-0.65','0.65-0.75','0.75-0.85','0.85-0.95','0.95-0.99'];
+  const cCounts=[cs.filter(v=>v>=0.55&&v<0.65).length,cs.filter(v=>v>=0.65&&v<0.75).length,cs.filter(v=>v>=0.75&&v<0.85).length,cs.filter(v=>v>=0.85&&v<0.95).length,cs.filter(v=>v>=0.95).length];
+  histChart('ch-confDist',cBins,cCounts,C.green);
+
+  const qcMap=groupCount(rows,'question_category'); const qcKeys=Object.keys(qcMap);
+  pieChart('ch-qCategory',qcKeys,qcKeys.map(k=>qcMap[k]));
+
+  const rowsWithEscal=rows.map(r=>({...r,_escal:isTrue(r.escalated_interaction)||isTrue(r.escalation_required)?1:0}));
+  const escByQ=groupSum(rowsWithEscal,'question_category','_escal'); const escTot=groupCount(rows,'question_category');
+  barChart('ch-escalByCategory',qcKeys,[{label:'Escalation %',data:qcKeys.map(k=>+((100*(escByQ[k]||0)/(escTot[k]||1)).toFixed(1))),color:C.orange}]);
+
+  const rt=sortedDateMap(byDate(rows,'date','response_time_ms','avg'),20);
+  lineChart('ch-respTimeTrend',rt.dates,[{label:'Avg Response Time (ms)',data:rt.vals,color:C.navy}]);
+
+  // Sentiment trend
+  const sentDatesMap={}; rows.forEach(r=>{ const d=String(r.date||'').slice(0,10); if(!d) return; if(!sentDatesMap[d]) sentDatesMap[d]={pos:0,neu:0,neg:0,tot:0}; sentDatesMap[d].tot++; const s=(r.customer_sentiment||'').toLowerCase(); if(s==='positive')sentDatesMap[d].pos++; else if(s==='negative')sentDatesMap[d].neg++; else sentDatesMap[d].neu++; });
+  const sentKeys=Object.keys(sentDatesMap).sort(); const sentStep=Math.max(1,Math.floor(sentKeys.length/20)); const sk=sentKeys.filter((_,i)=>i%sentStep===0);
+  mkChart('ch-sentimentTrend',{type:'line',data:{labels:sk,datasets:[
+    {label:'Positive',data:sk.map(d=>+(100*sentDatesMap[d].pos/sentDatesMap[d].tot).toFixed(1)),borderColor:C.green,backgroundColor:'rgba(22,163,74,0.1)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Neutral',data:sk.map(d=>+(100*sentDatesMap[d].neu/sentDatesMap[d].tot).toFixed(1)),borderColor:C.amber,backgroundColor:'rgba(217,119,6,0.08)',tension:0.35,pointRadius:0,fill:true},
+    {label:'Negative',data:sk.map(d=>+(100*sentDatesMap[d].neg/sentDatesMap[d].tot).toFixed(1)),borderColor:C.red,backgroundColor:'rgba(220,38,38,0.07)',tension:0.35,pointRadius:0,fill:true},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{grid:{display:false}},y:{grid:{color:'#EBF1F7'}}}}});
+
+  const mdMap=groupAvg(rows,'ai_model_version','ai_quality_score'); const mdKeys=Object.keys(mdMap);
+  const mdVals=mdKeys.map(k=>+(mdMap[k]).toFixed(1));
+  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdVals,color:[C.navy,C.orange,C.purple]}]);
+
+  const tk=sortedDateMap(byDate(rows,'date','token_count'),20);
+  lineChart('ch-tokenTrend',tk.dates,[{label:'Tokens Used',data:tk.vals,color:C.purple}]);
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT — auto-fetch on load, render exec immediately
+══════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  // Render with demo data immediately so page isn't blank
+  renderExec(); rendered.add('exec');
+  // Then fetch real data in background
+  await autoFetchAllCSVs();
+});
+</script>
+</body>
+</html>
