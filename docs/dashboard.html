@@ -1318,9 +1318,11 @@ function refreshAllCharts(){
    Each function tries DATA.uploaded first, falls back to synthetic
 ══════════════════════════════════════════════════════ */
 
-function col(rows, key){ return rows.map(r=>r[key]).filter(v=>v!=null&&v!==''&&!isNaN(v)).map(Number); }
-function colStr(rows, key){ return rows.map(r=>String(r[key]||'').trim()).filter(Boolean); }
+function col(rows, key){ return rows.map(r=>r[key]).filter(v=>v!=null&&v!=='').map(v=>{ if(v===true||v==='True'||v==='true') return 1; if(v===false||v==='False'||v==='false') return 0; return Number(v); }).filter(v=>!isNaN(v)); }
+function colStr(rows, key){ return rows.map(r=>String(r[key]||'').trim()).filter(v=>v&&v!=='nan'&&v!=='None'&&v!=='null'); }
 function colUnique(rows, key){ return [...new Set(colStr(rows,key))]; }
+// normalise a flag field that may be 0/1 or True/False string
+function isTrue(v){ return v===1||v===true||v==='1'||v==='True'||v==='true'; }
 function groupSum(rows, groupKey, valKey){
   const m={}; rows.forEach(r=>{ const g=r[groupKey]; if(g!=null) m[g]=(m[g]||0)+(Number(r[valKey])||0); }); return m;
 }
@@ -1333,7 +1335,7 @@ function groupCount(rows, groupKey){
 }
 function convRateByGroup(rows, groupKey){
   const tot=groupCount(rows,groupKey);
-  const conv=groupCount(rows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1'||r.conversion_flag===true),groupKey);
+  const conv=groupCount(rows.filter(r=>isTrue(r.conversion_flag)),groupKey);
   const out={}; Object.keys(tot).forEach(k=>out[k]=+((100*(conv[k]||0)/tot[k]).toFixed(1))); return out;
 }
 function byDate(rows, dateKey, valKey, agg='sum'){
@@ -1360,7 +1362,7 @@ function renderExec(){
   const totalPolicies = sum(col(rows,'policies_issued'));
   const avgConv       = +(avg(col(rows,'conversion_rate'))).toFixed(1);
   const totalPremium  = sum(col(rows,'premium_collected'));
-  const totalClaims   = sum(col(rows,'claims_paid'));
+  const totalClaims   = sum(col(rows,'claim_amount'))||sum(col(rows,'claims_paid'));
   const claimRatio    = +(avg(col(rows,'claim_ratio'))).toFixed(1);
   const avgManual     = +(avg(col(rows,'manual_underwriting_pct'))).toFixed(0);
   const avgSat        = +(avg(col(rows,'customer_satisfaction'))).toFixed(1);
@@ -1389,7 +1391,8 @@ function renderExec(){
     {label:'Abandonment %',data:cr.vals.map(v=>+(100-v).toFixed(1)),color:C.red}],{y:{max:100,min:0}});
 
   const pr=sortedDateMap(byDate(rows,'date','premium_collected'));
-  const cl=sortedDateMap(byDate(rows,'date','claims_paid'));
+  const claimCol = col(rows,'claims_paid').some(v=>v>0) ? 'claims_paid' : 'claim_amount';
+  const cl=sortedDateMap(byDate(rows,'date',claimCol));
   lineChart('ch-revTrend',pr.dates,[{label:'Premium',data:pr.vals,color:C.navy},{label:'Claims',data:cl.vals,color:C.red}]);
 
   const mu=sortedDateMap(byDate(rows,'date','manual_underwriting_pct','avg'));
@@ -1431,19 +1434,21 @@ function renderSales(){
     kpiCard('Total Quotes',totalQ.toLocaleString('en-IN'),'navy','',''),
     kpiCard('Avg Conversion',avgConv+'%','orange','',''),
     kpiCard('Avg Premium',fmtRs(avgPrem),'','',''),
-    kpiCard('High Value Quotes',col(rows,'high_value_quote').filter(v=>v==1).length.toLocaleString('en-IN'),'purple','',''),
+    kpiCard('High Value Quotes',rows.filter(r=>isTrue(r.high_value_quote)).length.toLocaleString('en-IN'),'purple','',''),
     kpiCard('Avg Days Since Contact',+(avg(col(rows,'days_since_last_contact'))).toFixed(1)+'d','','',''),
   ].join('');
 
-  // Channel conversion
-  const chConvMap = convRateByGroup(rows,'channel_name');
+  // Channel conversion — filter blank channel_name rows
+  const salesRows = rows.filter(r=>r.channel_name&&String(r.channel_name).trim()!='');
+  const chConvMap = convRateByGroup(salesRows,'channel_name');
   const chKeys = Object.keys(chConvMap);
   barChart('ch-byChannel',chKeys,[{label:'Conversion %',data:chKeys.map(k=>chConvMap[k]),color:chKeys.map((_,i)=>PALETTE[i])}]);
 
-  // Region
-  const rgConvMap = convRateByGroup(rows,'region');
-  const rgKeys = Object.keys(rgConvMap).slice(0,10);
-  barChart('ch-byRegion',rgKeys,[{label:'Conversion %',data:rgKeys.map(k=>rgConvMap[k]),color:C.navy}]);
+  // Region — normalise float regions (24.0 -> "24")
+  const rowsWithRegion = rows.map(r=>({...r, _region: String(Math.round(Number(r.region)||0))}));
+  const rgConvMap = convRateByGroup(rowsWithRegion,'_region');
+  const rgKeys = Object.keys(rgConvMap).sort((a,b)=>Number(a)-Number(b)).slice(0,12);
+  barChart('ch-byRegion',rgKeys.map(k=>'Region '+k),[{label:'Conversion %',data:rgKeys.map(k=>rgConvMap[k]),color:C.navy}]);
 
   // Age band — bin customer_age since age_band not in sales mart
   const ageBands=['18-25','26-35','36-45','46-55','56-65','66+'];
@@ -1515,11 +1520,11 @@ function renderUW(){
   if(!rows||!rows.length){ _renderUWOrig(); return; }
 
   const avgReview = +(avg(col(rows,'review_time_minutes'))).toFixed(1);
-  const stpRate   = +(100*col(rows,'stp_flag').filter(v=>v==1).length/rows.length).toFixed(1);
-  const manualPct = +(100*col(rows,'manual_review_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+  const stpRate   = +(100*rows.filter(r=>isTrue(r.stp_flag)).length/rows.length).toFixed(1);
+  const manualPct = +(100*rows.filter(r=>isTrue(r.manual_review_flag)).length/rows.length).toFixed(1);
   const approvalPct = +(100*rows.filter(r=>/approv/i.test(r.underwriting_decision||'')).length/rows.length).toFixed(1);
-  const fraudPct  = +(100*col(rows,'fraud_flag').filter(v=>v==1).length/rows.length).toFixed(1);
-  const slaPct    = +(100*col(rows,'sla_breached_flag').filter(v=>v==1).length/rows.length).toFixed(1);
+  const fraudPct  = +(100*rows.filter(r=>isTrue(r.fraud_flag)).length/rows.length).toFixed(1);
+  const slaPct    = +(100*rows.filter(r=>isTrue(r.sla_breached_flag)).length/rows.length).toFixed(1);
 
   document.getElementById('uw-kpis').innerHTML=[
     kpiCard('Avg Review Time',avgReview+' min','orange','Target: -25%','neu'),
@@ -1597,8 +1602,8 @@ function renderClaims(){
   const totalClaims   = rows.length;
   const totalAmt      = sum(col(rows,'claim_amount'));
   const avgSettle     = +(avg(col(rows,'settlement_days'))).toFixed(1);
-  const fraudPct      = +(100*col(rows,'high_fraud').filter(v=>v==1).length/rows.length).toFixed(1);
-  const approvedPct   = +(100*col(rows,'claim_approved').filter(v=>v==1).length/rows.length).toFixed(1);
+  const fraudPct      = +(100*rows.filter(r=>isTrue(r.high_fraud)).length/rows.length).toFixed(1);
+  const approvedPct   = +(100*rows.filter(r=>isTrue(r.claim_approved)).length/rows.length).toFixed(1);
 
   document.getElementById('claims-kpis').innerHTML=[
     kpiCard('Total Claims',totalClaims.toLocaleString('en-IN'),'red','',''),
@@ -1654,8 +1659,8 @@ function renderAI(){
 
   const totalSess  = rows.length;
   const avgConf    = +(avg(col(rows,'confidence_score'))*100).toFixed(1);
-  const escalPct   = +(100*col(rows,'escalated_interaction').filter(v=>v==1).length/rows.length).toFixed(1);
-  const resolPct   = +(100*col(rows,'resolved_interaction').filter(v=>v==1).length/rows.length).toFixed(1);
+  const escalPct   = +(100*rows.filter(r=>isTrue(r.escalated_interaction)||isTrue(r.escalation_required)).length/rows.length).toFixed(1);
+  const resolPct   = +(100*rows.filter(r=>isTrue(r.resolved_interaction)||isTrue(r.resolved_flag)).length/rows.length).toFixed(1);
   const avgRating  = +(avg(col(rows,'customer_rating'))).toFixed(1);
   const avgLatency = +(avg(col(rows,'response_time_ms'))).toFixed(0);
   const totalTokens= sum(col(rows,'token_count'));
@@ -1679,7 +1684,8 @@ function renderAI(){
   const qcMap=groupCount(rows,'question_category'); const qcKeys=Object.keys(qcMap);
   pieChart('ch-qCategory',qcKeys,qcKeys.map(k=>qcMap[k]));
 
-  const escByQ=groupSum(rows,'question_category','escalated_interaction'); const escTot=groupCount(rows,'question_category');
+  const rowsWithEscal=rows.map(r=>({...r,_escal:isTrue(r.escalated_interaction)||isTrue(r.escalation_required)?1:0}));
+  const escByQ=groupSum(rowsWithEscal,'question_category','_escal'); const escTot=groupCount(rows,'question_category');
   barChart('ch-escalByCategory',qcKeys,[{label:'Escalation %',data:qcKeys.map(k=>+((100*(escByQ[k]||0)/(escTot[k]||1)).toFixed(1))),color:C.orange}]);
 
   const rt=sortedDateMap(byDate(rows,'date','response_time_ms','avg'),20);
@@ -1695,8 +1701,8 @@ function renderAI(){
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{x:{grid:{display:false}},y:{grid:{color:'#EBF1F7'}}}}});
 
   const mdMap=groupAvg(rows,'ai_model_version','ai_quality_score'); const mdKeys=Object.keys(mdMap);
-  const mdVals=mdKeys.map(k=>mdMap[k]); const mdScale=mdVals.some(v=>v>1)?1:100;
-  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdVals.map(v=>+(v*mdScale).toFixed(1)),color:[C.navy,C.orange,C.purple]}]);
+  const mdVals=mdKeys.map(k=>+(mdMap[k]).toFixed(1));
+  barChart('ch-modelPerf',mdKeys,[{label:'Avg Quality Score',data:mdVals,color:[C.navy,C.orange,C.purple]}]);
 
   const tk=sortedDateMap(byDate(rows,'date','token_count'),20);
   lineChart('ch-tokenTrend',tk.dates,[{label:'Tokens Used',data:tk.vals,color:C.purple}]);
