@@ -1516,17 +1516,16 @@ function renderSales_demo(){
   pieChart('ch-byGender',genKeys,genKeys.map(k=>genConvMap[k]));
 
   // Funnel — count rows at each quote_stage
-  const stageOrder=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
-  const stageMap=groupCount(rows,'quote_stage');
-  const stageCounts=stageOrder.map(s=>stageMap[s]||0);
-  const hasStageData=stageCounts.some(v=>v>0);
-  if(hasStageData){
-    funnel('sales-funnel',stageOrder,stageCounts,['#003057','#1A4A6B','#2E6EA6','#3D8BC9','#52A8E8','#F26522']);
-  } else {
-    funnel('sales-funnel',['Quote Generated','Proposal Started','Docs Uploaded','UW Review','Payment','Issued'],
-      [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)],
-      ['#003057','#1A4A6B','#2E6EA6','#3D8BC9','#52A8E8','#F26522']);
-  }
+  // quote_stage = where quote currently IS, not cumulative
+  // Build cumulative funnel: quotes that reached stage N or beyond
+  const stageSeq=['Quote Generated','Proposal Started','Documents Uploaded','Underwriting Completed','Payment Initiated','Policy Issued'];
+  const stageRank={}; stageSeq.forEach((s,i)=>stageRank[s]=i);
+  const stageCumul=stageSeq.map((s,i)=>rows.filter(r=>(stageRank[r.quote_stage]||0)>=i).length);
+  const hasCumul=stageCumul[0]>0;
+  funnel('sales-funnel',
+    ['Quote Generated','Proposal Started','Docs Uploaded','UW Completed','Payment Initiated','Policy Issued'],
+    hasCumul ? stageCumul : [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)],
+    ['#003057','#1A4A6B','#2E6EA6','#3D8BC9','#52A8E8','#F26522']);
 
   // Heatmap
   const hmEl=document.getElementById('ch-heatmap');
