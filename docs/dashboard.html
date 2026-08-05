@@ -1748,11 +1748,28 @@ function renderAI(){
    INIT — auto-fetch on load, render exec immediately
 ══════════════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', async ()=>{
-  // Render with demo data immediately so page isn't blank
-  renderExec(); rendered.add('exec');
-  // Then fetch real data in background
-  await autoFetchAllCSVs();
+  try {
+    dbg('DOMContentLoaded fired — starting init','#38bdf8');
+    renderExec(); rendered.add('exec');
+    dbg('Demo data rendered OK','#4ade80');
+  } catch(e){
+    dbg('renderExec ERROR: '+e.message,'#f87171');
+  }
+  try {
+    await autoFetchAllCSVs();
+  } catch(e){
+    dbg('autoFetchAllCSVs ERROR: '+e.message,'#f87171');
+  }
 });
+
+// Also catch any global JS errors and show in debug panel
+window.onerror = function(msg, src, line, col, err){
+  dbg('JS ERROR: '+msg+' (line '+line+')', '#f87171');
+  return false;
+};
+window.onunhandledrejection = function(e){
+  dbg('PROMISE ERROR: '+(e.reason&&e.reason.message||e.reason),'#f87171');
+};
 </script>
 </body>
 </html>
