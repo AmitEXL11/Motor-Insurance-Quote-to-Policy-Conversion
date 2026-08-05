@@ -83,7 +83,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
 .funnel-step{margin-bottom:8px}
 .fs-label{display:flex;justify-content:space-between;font-size:11px;color:var(--ink2);margin-bottom:3px}
 .fs-bar-outer{background:var(--s2);border-radius:4px;overflow:hidden;height:22px;position:relative}
-.fs-bar-inner{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:10px;font-weight:700;color:#fff;transition:width .6s ease;min-width:32px}
+.fs-bar-inner{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:10px;font-weight:700;color:#fff;transition:width .6s ease;min-width:48px}
 .fs-drop{font-size:10px;color:var(--red);font-family:var(--mono);margin-top:2px}
 
 /* ── MATRIX TABLE ── */
@@ -1521,10 +1521,11 @@ function renderSales_demo(){
   const stageCounts=stageOrder.map(s=>stageMap[s]||0);
   const hasStageData=stageCounts.some(v=>v>0);
   if(hasStageData){
-    funnel('sales-funnel',stageOrder,stageCounts);
+    funnel('sales-funnel',stageOrder,stageCounts,['#003057','#1A4A6B','#2E6EA6','#3D8BC9','#52A8E8','#F26522']);
   } else {
     funnel('sales-funnel',['Quote Generated','Proposal Started','Docs Uploaded','UW Review','Payment','Issued'],
-      [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)]);
+      [rows.length,Math.round(rows.length*.74),Math.round(rows.length*.49),Math.round(rows.length*.39),Math.round(rows.length*.17),Math.round(rows.length*.115)],
+      ['#003057','#1A4A6B','#2E6EA6','#3D8BC9','#52A8E8','#F26522']);
   }
 
   // Heatmap
