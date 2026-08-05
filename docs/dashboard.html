@@ -1389,10 +1389,9 @@ function sortedDateMap(m, maxPts=30){
    OVERRIDE RENDER FUNCTIONS WITH REAL DATA WHEN AVAILABLE
 ══════════════════════════════════════════════════════ */
 
-const _renderExecOrig = renderExec;
-function renderExec(){
+function renderExec_demo(){
   const rows = DATA.uploaded.exec;
-  if(!rows||!rows.length){ _renderExecOrig(); return; }
+  if(!rows||!rows.length){ renderExec_demo(); return; }
 
   const totalQuotes   = sum(col(rows,'quote_volume'));
   const totalPolicies = sum(col(rows,'policies_issued'));
@@ -1456,10 +1455,9 @@ function renderExec(){
   document.getElementById('kpi-vs-target').innerHTML=`<table class="matrix-table"><thead><tr><th>KPI</th><th>Current</th><th>Target</th><th>Gap</th><th>Status</th></tr></thead><tbody>${targets.map(t=>`<tr><td>${t.kpi}</td><td>${t.curr}</td><td>${t.target}</td><td>${t.gap}</td><td>${t.status==='✓'?'<span class="tag green">On Track</span>':'<span class="tag orange">Action Needed</span>'}</td></tr>`).join('')}</tbody></table>`;
 }
 
-const _renderSalesOrig = renderSales;
-function renderSales(){
+function renderSales_demo(){
   const rows = DATA.uploaded.sales;
-  if(!rows||!rows.length){ _renderSalesOrig(); return; }
+  if(!rows||!rows.length){ renderSales_demo(); return; }
 
   const totalQ = rows.length;
   const convRows = rows.filter(r=>r.conversion_flag==1||r.conversion_flag==='1');
@@ -1550,10 +1548,9 @@ function renderSales(){
   hmEl.innerHTML=hmHtml;
 }
 
-const _renderUWOrig = renderUW;
-function renderUW(){
+function renderUW_demo(){
   const rows = DATA.uploaded.uw;
-  if(!rows||!rows.length){ _renderUWOrig(); return; }
+  if(!rows||!rows.length){ renderUW_demo(); return; }
 
   const avgReview = +(avg(col(rows,'review_time_minutes'))).toFixed(1);
   const stpRate   = +(100*rows.filter(r=>isTrue(r.stp_flag)).length/rows.length).toFixed(1);
@@ -1630,10 +1627,9 @@ function renderUW(){
   </div>`;
 }
 
-const _renderClaimsOrig = renderClaims;
-function renderClaims(){
+function renderClaims_demo(){
   const rows = DATA.uploaded.claims;
-  if(!rows||!rows.length){ _renderClaimsOrig(); return; }
+  if(!rows||!rows.length){ renderClaims_demo(); return; }
 
   const totalClaims   = rows.length;
   const totalAmt      = sum(col(rows,'claim_amount'));
@@ -1688,10 +1684,9 @@ function renderClaims(){
   hmEl.innerHTML=hmHtml;
 }
 
-const _renderAIOrig = renderAI;
-function renderAI(){
+function renderAI_demo(){
   const rows = DATA.uploaded.ai;
-  if(!rows||!rows.length){ _renderAIOrig(); return; }
+  if(!rows||!rows.length){ renderAI_demo(); return; }
 
   const totalSess  = rows.length;
   const avgConf    = +(avg(col(rows,'confidence_score'))*100).toFixed(1);
