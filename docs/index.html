@@ -59,7 +59,7 @@ nav{background:var(--navy);padding:0 40px;height:60px;display:flex;align-items:c
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;max-width:1100px;margin:0 auto}
 
 /* ── PRODUCT CARDS ── */
-.product-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:box-shadow .2s,transform .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.product-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:box-shadow .2s,transform .2s;text-decoration:none;color:inherit;display:flex!important;flex-direction:column!important}
 .product-card:hover{box-shadow:0 8px 32px rgba(0,48,87,0.12);transform:translateY(-3px)}
 .pc-banner{height:140px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
 .pc-banner.dashboard{background:linear-gradient(135deg,#003057 0%,#1A4A6B 100%)}
@@ -167,15 +167,15 @@ footer{background:var(--navy);padding:32px 40px;display:flex;align-items:center;
   <div class="section-sub" style="margin:0 auto 40px">Both run in the browser — no installs, no logins.</div>
   <div class="cards">
 
-    <a class="product-card" href="dashboard.html">
+    <div class="product-card" onclick="location.href='dashboard.html'" style="cursor:pointer">
       <div class="pc-banner dashboard">
         <div class="pc-banner-grid"></div>
-        <div class="pc-banner-icon">📊</div>
+        <div style="font-size:48px;position:relative;z-index:1">📊</div>
       </div>
       <div class="pc-body">
         <span class="pc-tag bi">Business Intelligence</span>
         <div class="pc-title">Quote-to-Policy Intelligence Dashboard</div>
-        <div class="pc-desc">8-tab interactive dashboard covering Executive KPIs, Sales & Conversion, Customer Journey, Customer 360, Underwriting, Claims, AI Monitoring, and ROI Recommendations. Auto-loads real Gold layer data from the warehouse.</div>
+        <div class="pc-desc">8-tab interactive dashboard covering Executive KPIs, Sales &amp; Conversion, Customer Journey, Customer 360, Underwriting, Claims, AI Monitoring, and ROI Recommendations. Auto-loads real Gold layer data from the warehouse.</div>
       </div>
       <div class="pc-footer">
         <a class="pc-link" href="dashboard.html">Open Dashboard →</a>
@@ -185,12 +185,12 @@ footer{background:var(--navy);padding:32px 40px;display:flex;align-items:center;
           <span class="pc-pill">8 tabs</span>
         </div>
       </div>
-    </a>
+    </div>
 
-    <a class="product-card" href="demo.html">
+    <div class="product-card" onclick="location.href='demo.html'" style="cursor:pointer">
       <div class="pc-banner demo">
         <div class="pc-banner-grid"></div>
-        <div class="pc-banner-icon">🤖</div>
+        <div style="font-size:48px;position:relative;z-index:1">🤖</div>
       </div>
       <div class="pc-body">
         <span class="pc-tag ai">Agentic AI</span>
@@ -205,7 +205,7 @@ footer{background:var(--navy);padding:32px 40px;display:flex;align-items:center;
           <span class="pc-pill">Live API</span>
         </div>
       </div>
-    </a>
+    </div>
 
   </div>
 </div>
