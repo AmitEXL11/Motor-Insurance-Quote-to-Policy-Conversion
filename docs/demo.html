@@ -217,6 +217,28 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 
 .conv-banner{background:var(--green);color:#fff;padding:7px 12px;font-size:11px;font-weight:600;text-align:center;flex-shrink:0}
 
+
+/* ── API KEY MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-box{background:#fff;border-radius:16px;padding:32px;width:480px;max-width:90vw;box-shadow:0 24px 60px rgba(0,0,0,0.3)}
+.modal-logo{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.modal-mark{width:36px;height:36px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
+.modal-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--ink2);line-height:1.5;margin-bottom:20px}
+.modal-input-wrap{position:relative;margin-bottom:12px}
+.modal-input{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:13px;color:var(--ink);outline:none;font-family:var(--mono);letter-spacing:.02em}
+.modal-input:focus{border-color:var(--orange)}
+.modal-btn{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.modal-btn:hover{background:var(--navy2)}
+.modal-note{font-size:10.5px;color:var(--ink3);margin-top:10px;line-height:1.5;text-align:center}
+.modal-note a{color:var(--orange);text-decoration:none}
+.key-set-badge{display:flex;align-items:center;gap:5px;background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.25);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:600;color:#4ADE80;font-family:var(--mono);cursor:pointer}
+.key-set-badge:hover{background:rgba(22,163,74,0.25)}
+/* ── DATA LOAD BANNER ── */
+.data-banner{background:rgba(242,101,34,0.12);border-bottom:1px solid rgba(242,101,34,0.2);padding:6px 20px;font-size:11px;color:#FB923C;font-family:var(--mono);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.data-banner.loaded{background:rgba(22,163,74,0.1);border-bottom-color:rgba(22,163,74,0.2);color:#4ADE80}
+.data-banner.hidden{display:none}
+
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 </style>
@@ -224,6 +246,36 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 <body>
 
 <!-- TOP BAR -->
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal-box">
+    <div class="modal-logo">
+      <div class="modal-mark">EXL</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy)">EXL Agentic Demo</div>
+        <div style="font-size:11px;color:var(--ink3)">Motor Insurance · Claude AI</div>
+      </div>
+    </div>
+    <div class="modal-title">Enter your Anthropic API Key</div>
+    <div class="modal-sub">This demo uses Claude AI for personalised WhatsApp outreach and next-best-action recommendations. Your key is stored only in this browser session — never sent to any server, never committed to GitHub.</div>
+    <div class="modal-input-wrap">
+      <input class="modal-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
+    </div>
+    <button class="modal-btn" onclick="saveApiKey()">Start Demo</button>
+    <div class="modal-note">
+      Key stored in <b>sessionStorage</b> only — cleared when you close this tab.<br>
+      Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
+      &nbsp;·&nbsp; <a href="#" onclick="skipApiKey()">Continue without key (fallback mode)</a>
+    </div>
+  </div>
+</div>
+
+<!-- DATA LOAD BANNER -->
+<div class="data-banner" id="dataBanner">
+  <span id="dataBannerText">Loading real Gold layer data from GitHub…</span>
+</div>
+
 <div class="topbar">
   <div class="logo">
     <div class="logo-mark">EXL</div>
@@ -232,7 +284,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
       <div class="logo-tag">Agentic Conversion Intelligence Platform · Motor Insurance</div>
     </div>
   </div>
-  <div class="kpi-strip">
+  <div class="kpi-strip" id="kpiStrip">
     <div class="kpi-chip"><div class="n" id="kn-total">5</div><div class="l">Quotes Active</div></div>
     <div class="kpi-div"></div>
     <div class="kpi-chip"><div class="n" id="kn-conv">0</div><div class="l">Converted</div></div>
@@ -302,6 +354,179 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 </div>
 
 <script>
+
+/* ══════════════════════════════════════════════════════
+   API KEY MANAGEMENT
+══════════════════════════════════════════════════════ */
+const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/data/gold/data_marts';
+
+function saveApiKey(){
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if(!key || !key.startsWith('sk-ant')) {
+    document.getElementById('apiKeyInput').style.borderColor = 'var(--red)';
+    document.getElementById('apiKeyInput').placeholder = 'Key must start with sk-ant-...';
+    return;
+  }
+  sessionStorage.setItem('anthropic_api_key', key);
+  document.getElementById('apiModal').style.display = 'none';
+  updateKeyBadge(true);
+  initDemo();
+}
+
+function skipApiKey(){
+  document.getElementById('apiModal').style.display = 'none';
+  updateKeyBadge(false);
+  initDemo();
+}
+
+function updateKeyBadge(hasKey){
+  const strip = document.getElementById('kpiStrip');
+  const existing = document.getElementById('keyBadge');
+  if(existing) existing.remove();
+  const badge = document.createElement('div');
+  badge.id = 'keyBadge';
+  badge.className = 'key-set-badge';
+  badge.onclick = () => { sessionStorage.removeItem('anthropic_api_key'); location.reload(); };
+  badge.innerHTML = hasKey 
+    ? '<span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;display:inline-block"></span>API Key Set · click to change'
+    : '<span style="width:5px;height:5px;border-radius:50%;background:var(--amber);display:inline-block"></span>Fallback Mode · click to add key';
+  strip.appendChild(badge);
+}
+
+function getApiKey(){ return sessionStorage.getItem('anthropic_api_key') || ''; }
+
+/* ══════════════════════════════════════════════════════
+   REAL DATA FETCH FROM GOLD LAYER
+   Builds real quote profiles from sales_dashboard.csv
+   + underwriting_dashboard.csv joined by row index (1:1:1)
+══════════════════════════════════════════════════════ */
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  const headers = lines[0].split(',').map(h=>h.trim());
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj = {};
+    headers.forEach((h,i) => { obj[h] = (vals[i]||'').trim(); });
+    return obj;
+  }).filter(r => Object.values(r).some(v=>v));
+}
+
+function isTrue(v){ return v===1||v===true||v==='1'||v==='True'||v==='true'; }
+
+async function fetchRealQuotes(){
+  const banner = document.getElementById('dataBanner');
+  const bannerText = document.getElementById('dataBannerText');
+  try {
+    bannerText.textContent = 'Fetching abandoned quotes from Gold layer…';
+
+    // Fetch both CSVs in parallel
+    const [salesRes, uwRes] = await Promise.all([
+      fetch(REPO_BASE + '/sales_dashboard.csv'),
+      fetch(REPO_BASE + '/underwriting_dashboard.csv'),
+    ]);
+
+    if(!salesRes.ok || !uwRes.ok) throw new Error('Fetch failed');
+
+    const [salesText, uwText] = await Promise.all([salesRes.text(), uwRes.text()]);
+    const salesRows = parseCSV(salesText);
+    const uwRows = parseCSV(uwText);
+
+    bannerText.textContent = `Loaded ${salesRows.length.toLocaleString('en-IN')} sales rows · ${uwRows.length.toLocaleString('en-IN')} UW rows · Building abandoned quote queue…`;
+
+    // Filter: Abandoned quotes only
+    const abandoned = salesRows.filter(r =>
+      r.quote_status === 'Abandoned' || r.quote_stage === 'Document Upload' ||
+      r.quote_stage === 'Premium Calculation' || r.quote_stage === 'Underwriting'
+    );
+
+    // Sort by high_value first, then days_since_last_contact descending
+    abandoned.sort((a,b) => {
+      if(isTrue(b.high_value_quote) !== isTrue(a.high_value_quote))
+        return isTrue(b.high_value_quote) ? 1 : -1;
+      return (Number(b.days_since_last_contact)||0) - (Number(a.days_since_last_contact)||0);
+    });
+
+    // Take top 8, build profiles
+    const top = abandoned.slice(0, 8);
+    if(top.length < 3) throw new Error('Insufficient abandoned quotes');
+
+    const realQuotes = top.map((row, idx) => {
+      const uw = uwRows[Number(row.customer_sk)-1] || uwRows[idx] || {};
+      const age = Number(row.customer_age)||30;
+      const premium = Number(row.quoted_premium)||8000;
+      const riskScore = Number(uw.risk_score)||40;
+      const riskBand = uw.risk_band || (riskScore>=70?'High':riskScore>=40?'Medium':'Low');
+      const daysStuck = Number(row.days_since_last_contact)||1;
+      const prevInsured = isTrue(row.previously_insured)||false;
+      const priorClaims = 0; // not in sales mart — default 0
+      const channel = row.channel_name||'Direct';
+      const mileage = 9000; // not in sales mart — mid estimate
+
+      // Determine drop reason from stage
+      const stage = row.quote_stage||'';
+      let dropReason = 'channel', dropTag = 'channel', dropPoint = 'Quote View';
+      if(stage==='Premium Calculation'||stage==='Premium Confirmation'){ dropReason='price'; dropTag='price'; dropPoint='Premium Confirmation'; }
+      else if(stage==='Document Upload'){ dropReason='docs'; dropTag='docs'; dropPoint='Document Upload'; }
+      else if(stage==='Underwriting'||isTrue(uw.manual_review_flag)){ dropReason='uw'; dropTag='uw'; dropPoint='Underwriting Review'; }
+      else if(channel==='Aggregator'){ dropReason='channel'; dropTag='channel'; dropPoint='Aggregator Hand-off'; }
+
+      const funnelMap = {'Quote Generated':15,'Premium Calculation':40,'Document Upload':50,'Underwriting':75,'Payment':90,'Policy Issued':100};
+      const funnelPct = funnelMap[stage]||35;
+
+      const timeInStage = daysStuck >= 2 ? `${Math.round(daysStuck)} days` : `${Math.round(daysStuck*24)} hrs`;
+
+      return {
+        id: row.quote_id || `QT-${10000+idx}`,
+        name: `Customer ${row.customer_sk||idx+1}`,
+        initials: `C${idx+1}`,
+        age, city: `Region ${Math.round(Number(row.region)||1)}`,
+        vehicle: `${row.device_type||'Mobile'} · ${row.quote_value_band||'Mid'} Value`,
+        vehicleType: 'Passenger Car', vehicleAge: 3,
+        priorClaims, priorDamage: false, prevInsured, channel,
+        quotedPremium: premium,
+        dropReason, dropTag, dropPoint, funnelPct,
+        timeInStage, riskScore, riskBand,
+        mileageKm: mileage, telematicsOk: riskBand !== 'High' || true,
+        ltv: Math.round(premium * 5),
+        claimsRatio: 0, renewalProb: prevInsured ? 68 : 50, crossSellScore: 55,
+        docMismatches: dropReason==='docs' ? ['Document upload failed — re-upload required'] : [],
+        stpEligible: riskBand!=='High' && dropReason!=='docs' && priorClaims<2,
+        behavioural: {
+          visits: Math.round(Number(row.quote_count)||1)+1,
+          timeOnQuote: '8 min',
+          revisions: Math.round(Number(row.quote_count)||1),
+          lastSeen: timeInStage+' ago'
+        },
+        context: `Customer aged ${age} from Region ${Math.round(Number(row.region)||1)}. Quoted ₹${premium.toLocaleString('en-IN')} via ${channel}. Abandoned at ${dropPoint}. Days since last contact: ${Math.round(daysStuck)}. Risk score: ${riskScore}/100 (${riskBand}).`,
+        isRealData: true
+      };
+    });
+
+    // Replace QUOTES array with real data
+    QUOTES.length = 0;
+    realQuotes.forEach(q => QUOTES.push(q));
+
+    banner.classList.add('loaded');
+    bannerText.textContent = `Live data loaded — ${QUOTES.length} abandoned quotes from Gold layer (${salesRows.length.toLocaleString('en-IN')} total records)`;
+    setTimeout(()=>banner.classList.add('hidden'), 5000);
+
+    renderQuoteList();
+    document.getElementById('qBadge').textContent = QUOTES.length + ' at risk';
+    document.getElementById('kn-total').textContent = QUOTES.length;
+
+  } catch(e) {
+    console.warn('Real data fetch failed, using demo profiles:', e.message);
+    banner.classList.add('loaded');
+    bannerText.textContent = 'Using demo profiles (GitHub data unavailable) — ' + e.message;
+    setTimeout(()=>banner.classList.add('hidden'), 4000);
+  }
+}
+
+async function initDemo(){
+  await fetchRealQuotes();
+}
+
+
 /* ══════════════════════════════════════════════════════
    QUOTE DATA — 5 Indian profiles, all drop-off reasons
 ══════════════════════════════════════════════════════ */
@@ -447,8 +672,11 @@ function propFactors(q){
    CLAUDE API
 ══════════════════════════════════════════════════════ */
 async function callClaude(system, messages){
+  const apiKey = getApiKey();
+  const headers = {'Content-Type':'application/json'};
+  if(apiKey) { headers['x-api-key'] = apiKey; headers['anthropic-version'] = '2023-06-01'; }
   const r = await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST', headers,
     body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,
       system: system+'\n\nReturn ONLY valid JSON. No markdown. No preamble.',
       messages})
@@ -819,10 +1047,21 @@ async function sendMsg(){
 document.getElementById('waInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMsg();});
 
 /* ══════════════════════════════════════════════════════
-   INIT
+   INIT — show API key modal, then load real data
 ══════════════════════════════════════════════════════ */
-renderQuoteList();
+renderQuoteList();  // render demo profiles immediately as fallback
 updateKPIs();
+// Show modal on load — initDemo() called after key entry
+window.addEventListener('DOMContentLoaded', () => {
+  const existingKey = sessionStorage.getItem('anthropic_api_key');
+  if(existingKey){
+    // Key already set this session — skip modal
+    document.getElementById('apiModal').style.display = 'none';
+    updateKeyBadge(true);
+    initDemo();
+  }
+  // else modal stays visible
+});
 </script>
 </body>
 </html>
