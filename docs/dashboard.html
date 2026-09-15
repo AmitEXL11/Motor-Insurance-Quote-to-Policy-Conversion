@@ -40,6 +40,21 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
 .tab:hover{color:rgba(255,255,255,0.75)}
 .tab.active{color:#fff;border-bottom-color:var(--orange);font-weight:600}
 
+
+/* ── FILTER BAR ── */
+.filter-bar{background:var(--surface);border-bottom:1px solid var(--line);padding:8px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.filter-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);white-space:nowrap}
+.filter-select{padding:5px 10px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;color:var(--ink);background:var(--surface);cursor:pointer;outline:none;font-family:inherit;min-width:120px;max-width:160px}
+.filter-select:focus{border-color:var(--orange)}
+.filter-select:hover{border-color:var(--navy3)}
+.filter-sep{width:1px;height:20px;background:var(--line);flex-shrink:0}
+.filter-active-count{font-size:10px;font-family:var(--mono);background:var(--orange2);color:var(--orange);padding:2px 8px;border-radius:10px;font-weight:700;display:none}
+.filter-active-count.show{display:inline-block}
+.filter-reset{font-size:11px;color:var(--orange);cursor:pointer;font-weight:600;padding:4px 8px;border-radius:6px;border:1px solid var(--orange2);background:var(--orange2);white-space:nowrap;display:none}
+.filter-reset.show{display:inline-block}
+.filter-reset:hover{background:var(--orange);color:#fff}
+.filter-insight{font-size:10.5px;color:var(--ink2);font-style:italic;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+
 /* ── BODY ── */
 .body{flex:1;overflow-y:auto;padding:16px 20px 24px}
 
@@ -207,6 +222,48 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--s1);
     <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:11px">✕ close</button>
   </div>
   <div id="debugLog" style="display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto"></div>
+</div>
+
+
+<!-- FILTER BAR -->
+<div class="filter-bar" id="filterBar">
+  <span class="filter-label">Filter</span>
+  <select class="filter-select" id="f-channel" onchange="applyFilter()">
+    <option value="">All Channels</option>
+  </select>
+  <select class="filter-select" id="f-region" onchange="applyFilter()">
+    <option value="">All Regions</option>
+  </select>
+  <select class="filter-select" id="f-age" onchange="applyFilter()">
+    <option value="">All Age Bands</option>
+    <option value="18-25">18–25</option>
+    <option value="26-35">26–35</option>
+    <option value="36-45">36–45</option>
+    <option value="46-55">46–55</option>
+    <option value="56-65">56–65</option>
+    <option value="66+">66+</option>
+  </select>
+  <select class="filter-select" id="f-device" onchange="applyFilter()">
+    <option value="">All Devices</option>
+  </select>
+  <select class="filter-select" id="f-segment" onchange="applyFilter()">
+    <option value="">All Segments</option>
+    <option value="Existing Customer">Existing Customer</option>
+    <option value="New Customer">New Customer</option>
+  </select>
+  <div class="filter-sep"></div>
+  <select class="filter-select" id="f-date" onchange="applyFilter()" style="min-width:140px">
+    <option value="">All Dates</option>
+    <option value="2025-Q1">2025 Q1</option>
+    <option value="2025-Q2">2025 Q2</option>
+    <option value="2025-Q3">2025 Q3</option>
+    <option value="2025-Q4">2025 Q4</option>
+    <option value="2026-Q1">2026 Q1</option>
+  </select>
+  <div class="filter-sep"></div>
+  <span class="filter-active-count" id="filterCount"></span>
+  <button class="filter-reset" id="filterResetBtn" onclick="resetFilters()">✕ Reset Filters</button>
+  <span class="filter-insight" id="filterInsight"></span>
 </div>
 
 <!-- BODY -->
@@ -1065,7 +1122,19 @@ function renderSales(){
 }
 
 function renderJourney(){
-  document.getElementById('journey-kpis').innerHTML=[
+  const jrows = filterRows(DATA.uploaded.journey||[]);
+  if(jrows.length > 0) {
+    const totalSess = jrows.length;
+    document.getElementById('journey-kpis').innerHTML=[
+      kpiCard('Sessions (filtered)',totalSess.toLocaleString('en-IN'),'navy','',''),
+      kpiCard('Completion Rate',+(100*jrows.filter(r=>isTrue(r.completed_flag)).length/totalSess).toFixed(1)+'%','orange','',''),
+      kpiCard('Avg Session Time','38 min','','',''),
+      kpiCard('Top Exit: Premium','38%','red','',''),
+      kpiCard('AI-Assisted Conv.','22.4%','green','vs 8.8% unassisted','up'),
+      kpiCard('Mobile Drop %','68%','amber','highest friction','neu'),
+    ].join('');
+  } else {
+    document.getElementById('journey-kpis').innerHTML=[
     kpiCard('Total Sessions','97,655','navy','',''),
     kpiCard('Completion Rate','11.5%','orange','',''),
     kpiCard('Avg Session Time','38 min','','',''),
@@ -1094,6 +1163,23 @@ function renderJourney(){
 }
 
 function renderC360(){
+  // Apply filters to c360 data if available
+  const _rawC360 = DATA.uploaded.c360;
+  const c360filtered = _rawC360 && _rawC360.length ? filterRows(_rawC360) : null;
+  const filteredCount = c360filtered ? c360filtered.length : 97655;
+  // Override kpi values if we have filtered real data
+  if(c360filtered && c360filtered.length > 0){
+    const rows = c360filtered;
+    document.getElementById('c360-kpis').innerHTML=[
+      kpiCard('Customers (filtered)',filteredCount.toLocaleString('en-IN'),'navy','of 97,655 total','neu'),
+      kpiCard('Avg AI Interactions',+(col(rows,'total_ai_interactions').reduce((a,b)=>a+b,0)/rows.length||2.4).toFixed(1),'orange','per customer','neu'),
+      kpiCard('Avg AI Confidence',+(col(rows,'avg_ai_confidence').reduce((a,b)=>a+b,0)/rows.length*100||84.2).toFixed(1)+'%','green','',''),
+      kpiCard('Avg Customer Rating',+(col(rows,'avg_customer_rating').reduce((a,b)=>a+b,0)/rows.length||3.9).toFixed(1)+'/5','','',''),
+      kpiCard('Previously Insured',+(100*rows.filter(r=>isTrue(r.previously_insured)).length/rows.length||48.3).toFixed(1)+'%','purple','',''),
+      kpiCard('High Value Quotes',+(100*rows.filter(r=>isTrue(r.high_value_quote)).length/rows.length||8.4).toFixed(1)+'%','amber','',''),
+    ].join('');
+    return; // skip demo render below for KPIs
+  }
   document.getElementById('c360-kpis').innerHTML=[
     kpiCard('Total Customers','97,655','navy','',''),
     kpiCard('Avg AI Interactions','2.4','orange','per customer','neu'),
@@ -1321,6 +1407,141 @@ function calcROI(){
   ].join('');
 }
 
+
+/* ══════════════════════════════════════════════════════
+   GLOBAL FILTER STATE
+══════════════════════════════════════════════════════ */
+const FILTERS = {channel:'', region:'', age:'', device:'', segment:'', date:''};
+
+function applyFilter(){
+  FILTERS.channel = document.getElementById('f-channel').value;
+  FILTERS.region  = document.getElementById('f-region').value;
+  FILTERS.age     = document.getElementById('f-age').value;
+  FILTERS.device  = document.getElementById('f-device').value;
+  FILTERS.segment = document.getElementById('f-segment').value;
+  FILTERS.date    = document.getElementById('f-date').value;
+
+  // Count active filters
+  const active = Object.values(FILTERS).filter(v=>v!=='').length;
+  const countEl = document.getElementById('filterCount');
+  const resetEl = document.getElementById('filterResetBtn');
+  if(active > 0){
+    countEl.textContent = active + ' filter' + (active>1?'s':'') + ' active';
+    countEl.classList.add('show');
+    resetEl.classList.add('show');
+  } else {
+    countEl.classList.remove('show');
+    resetEl.classList.remove('show');
+  }
+
+  // Update insight text based on filter combination
+  updateFilterInsight();
+
+  // Re-render: clear all rendered flags, re-render active tab
+  const wasRendered = new Set(rendered);
+  rendered.clear();
+  const activeTab = document.querySelector('.tab.active');
+  const activeKey = activeTab ? activeTab.getAttribute('onclick').match(/'(\w+)'/)?.[1] : 'exec';
+  if(RENDERERS[activeKey]) { RENDERERS[activeKey](); rendered.add(activeKey); }
+}
+
+function resetFilters(){
+  ['f-channel','f-region','f-age','f-device','f-segment','f-date'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  Object.keys(FILTERS).forEach(k=>FILTERS[k]='');
+  document.getElementById('filterCount').classList.remove('show');
+  document.getElementById('filterResetBtn').classList.remove('show');
+  document.getElementById('filterInsight').textContent='';
+  const activeTab = document.querySelector('.tab.active');
+  const activeKey = activeTab ? activeTab.getAttribute('onclick').match(/'(\w+)'/)?.[1] : 'exec';
+  rendered.clear();
+  if(RENDERERS[activeKey]) { RENDERERS[activeKey](); rendered.add(activeKey); }
+}
+
+function updateFilterInsight(){
+  const el = document.getElementById('filterInsight');
+  const parts = [];
+  if(FILTERS.channel) parts.push(FILTERS.channel);
+  if(FILTERS.region) parts.push('Region '+FILTERS.region);
+  if(FILTERS.age) parts.push(FILTERS.age+' yrs');
+  if(FILTERS.device) parts.push(FILTERS.device);
+  if(FILTERS.segment) parts.push(FILTERS.segment);
+  if(FILTERS.date) parts.push(FILTERS.date);
+  if(parts.length===0){ el.textContent=''; return; }
+
+  // Show a dynamic insight if we have sales data
+  const rows = filterRows(DATA.uploaded.sales||[]);
+  if(rows.length>0){
+    const total = rows.length;
+    const conv = rows.filter(r=>isTrue(r.conversion_flag)).length;
+    const rate = total>0 ? (100*conv/total).toFixed(1) : '—';
+    el.textContent = `${parts.join(' · ')} — ${total.toLocaleString('en-IN')} quotes · ${rate}% conversion`;
+  } else {
+    el.textContent = parts.join(' · ');
+  }
+}
+
+/* Core filter function — applied to ANY dataset before rendering */
+function filterRows(rows){
+  if(!rows || !rows.length) return rows;
+  return rows.filter(r=>{
+    // Channel
+    if(FILTERS.channel && String(r.channel_name||'').trim() !== FILTERS.channel) return false;
+    // Region
+    if(FILTERS.region){
+      const rr = String(Math.round(Number(r.region)||0));
+      if(rr !== FILTERS.region) return false;
+    }
+    // Age band — works on customer_age (number)
+    if(FILTERS.age){
+      const a = Number(r.customer_age||r.age||0);
+      const [lo,hi] = FILTERS.age === '66+' ? [66,999] : FILTERS.age.split('-').map(Number);
+      if(a < lo || a > hi) return false;
+    }
+    // Device
+    if(FILTERS.device && String(r.device_type||'').trim() !== FILTERS.device) return false;
+    // Customer segment
+    if(FILTERS.segment && String(r.customer_segment||r.insurance_history||'').trim() !== FILTERS.segment) return false;
+    // Date / Quarter
+    if(FILTERS.date){
+      const d = String(r.date||r.date_sk||'').slice(0,10);
+      if(!d) return true; // keep rows with no date
+      const [yr,qtr] = FILTERS.date.split('-Q');
+      const month = Number(d.slice(5,7));
+      const year = Number(d.slice(0,4));
+      if(Number(yr) !== year) return false;
+      const q = Math.ceil(month/3);
+      if(Number(qtr) !== q) return false;
+    }
+    return true;
+  });
+}
+
+/* Populate filter dropdowns from real data once loaded */
+function populateFilters(){
+  const sales = DATA.uploaded.sales||[];
+  if(!sales.length) return;
+
+  // Channel
+  const channels = [...new Set(sales.map(r=>String(r.channel_name||'').trim()).filter(v=>v))].sort();
+  const chEl = document.getElementById('f-channel');
+  chEl.innerHTML = '<option value="">All Channels</option>' + channels.map(c=>`<option value="${c}">${c}</option>`).join('');
+
+  // Region (normalise to int)
+  const regions = [...new Set(sales.map(r=>String(Math.round(Number(r.region)||0))).filter(v=>v&&v!=='0'))].sort((a,b)=>Number(a)-Number(b)).slice(0,15);
+  const rgEl = document.getElementById('f-region');
+  rgEl.innerHTML = '<option value="">All Regions</option>' + regions.map(r=>`<option value="${r}">Region ${r}</option>`).join('');
+
+  // Device
+  const devices = [...new Set(sales.map(r=>String(r.device_type||'').trim()).filter(v=>v))].sort();
+  const dvEl = document.getElementById('f-device');
+  dvEl.innerHTML = '<option value="">All Devices</option>' + devices.map(d=>`<option value="${d}">${d}</option>`).join('');
+
+  dbg('Filter dropdowns populated from real data','#4ade80');
+}
+
+
 /* ══════════════════════════════════════════════════════
    TAB SWITCHING
 ══════════════════════════════════════════════════════ */
@@ -1331,11 +1552,16 @@ function showTab(key){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   event.target.classList.add('active');
+  event.target.setAttribute('data-key', key);
   document.getElementById('page-'+key).classList.add('active');
+  // Show/hide filter bar — hide on Recommendations tab (no row data)
+  document.getElementById('filterBar').style.display = key==='reco' ? 'none' : '';
   if(!rendered.has(key)){
     RENDERERS[key]&&RENDERERS[key]();
     rendered.add(key);
   }
+  // Update filter insight for new tab context
+  updateFilterInsight();
 }
 
 function refreshAllCharts(){
@@ -1346,6 +1572,7 @@ function refreshAllCharts(){
   renderExec(); rendered.add('exec');
   // re-render any other tab already visited
   wasRendered.forEach(k=>{ if(k!=='exec'){ const fn={sales:renderSales,journey:renderJourney,c360:renderC360,uw:renderUW,claims:renderClaims,ai:renderAI,reco:renderReco}[k]; if(fn){try{fn();rendered.add(k);}catch(e){dbg(k+' re-render error: '+e.message,'#f87171');}}}});
+  populateFilters();
   dbg('All charts refreshed with live data','#4ade80');
 }
 
@@ -1390,8 +1617,10 @@ function sortedDateMap(m, maxPts=30){
 ══════════════════════════════════════════════════════ */
 
 function renderExec_demo(){
-  const rows = DATA.uploaded.exec;
-  if(!rows||!rows.length){ renderExec_demo(); return; }
+  const _rawExec = DATA.uploaded.exec;
+  if(!_rawExec||!_rawExec.length){ renderExec_demo(); return; }
+  // Apply date filter to exec (exec has 'date' column)
+  const rows = filterRows(_rawExec);
 
   const totalQuotes   = sum(col(rows,'quote_volume'));
   const totalPolicies = sum(col(rows,'policies_issued'));
@@ -1472,8 +1701,8 @@ function renderSales_demo(){
     kpiCard('Avg Days Since Contact',+(avg(col(rows,'days_since_last_contact'))).toFixed(1)+'d','','',''),
   ].join('');
 
-  // Channel conversion — filter blank channel_name rows
-  const salesRows = rows.filter(r=>r.channel_name&&String(r.channel_name).trim()!='');
+  // Channel conversion — filter blank channel_name rows + apply global filters
+  const salesRows = filterRows(rows.filter(r=>r.channel_name&&String(r.channel_name).trim()!=''));
   const chConvMap = convRateByGroup(salesRows,'channel_name');
   const chKeys = Object.keys(chConvMap);
   barChart('ch-byChannel',chKeys,[{label:'Conversion %',data:chKeys.map(k=>chConvMap[k]),color:chKeys.map((_,i)=>PALETTE[i])}]);
@@ -1549,8 +1778,9 @@ function renderSales_demo(){
 }
 
 function renderUW_demo(){
-  const rows = DATA.uploaded.uw;
-  if(!rows||!rows.length){ renderUW_demo(); return; }
+  const _rawUW = DATA.uploaded.uw;
+  if(!_rawUW||!_rawUW.length){ renderUW_demo(); return; }
+  const rows = filterRows(_rawUW);
 
   const avgReview = +(avg(col(rows,'review_time_minutes'))).toFixed(1);
   const stpRate   = +(100*rows.filter(r=>isTrue(r.stp_flag)).length/rows.length).toFixed(1);
@@ -1628,8 +1858,9 @@ function renderUW_demo(){
 }
 
 function renderClaims_demo(){
-  const rows = DATA.uploaded.claims;
-  if(!rows||!rows.length){ renderClaims_demo(); return; }
+  const _rawClaims = DATA.uploaded.claims;
+  if(!_rawClaims||!_rawClaims.length){ renderClaims_demo(); return; }
+  const rows = filterRows(_rawClaims);
 
   const totalClaims   = rows.length;
   const totalAmt      = sum(col(rows,'claim_amount'));
@@ -1685,8 +1916,9 @@ function renderClaims_demo(){
 }
 
 function renderAI_demo(){
-  const rows = DATA.uploaded.ai;
-  if(!rows||!rows.length){ renderAI_demo(); return; }
+  const _rawAI = DATA.uploaded.ai;
+  if(!_rawAI||!_rawAI.length){ renderAI_demo(); return; }
+  const rows = filterRows(_rawAI);
 
   const totalSess  = rows.length;
   const avgConf    = +(avg(col(rows,'confidence_score'))*100).toFixed(1);
