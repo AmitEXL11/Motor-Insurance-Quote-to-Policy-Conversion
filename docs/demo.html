@@ -239,6 +239,17 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 .data-banner.loaded{background:rgba(22,163,74,0.1);border-bottom-color:rgba(22,163,74,0.2);color:#4ADE80}
 .data-banner.hidden{display:none}
 
+
+/* ── DEBUG PANEL ── */
+.debug-panel{position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #1e3a5f;font-family:'SF Mono',monospace;font-size:11px;z-index:999;display:none;flex-direction:column;max-height:200px}
+.debug-header{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:#1e293b;flex-shrink:0}
+.debug-title{color:#38bdf8;font-weight:700;font-size:10px;letter-spacing:.06em}
+.debug-close{background:none;border:none;color:#64748b;cursor:pointer;font-size:12px;padding:2px 6px}
+.debug-log{overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:3px;flex:1}
+.debug-entry{display:flex;gap:8px;line-height:1.5}
+.debug-time{color:#334155;flex-shrink:0}
+.debug-msg{flex:1}
+
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 </style>
@@ -296,6 +307,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
     <div class="kpi-chip"><div class="n" id="kn-premium">₹0</div><div class="l">Premium Recovered</div></div>
     <div class="kpi-div"></div>
     <div class="live-pill"><div class="live-dot"></div>Claude AI Live</div>
+      <button onclick="var p=document.getElementById('debugPanel');p.style.display=p.style.display==='flex'?'none':'flex'" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:4px 11px;font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;font-family:monospace">⚡ DEBUG</button>
   </div>
 </div>
 
@@ -354,6 +366,24 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 </div>
 
 <script>
+
+
+/* ══════════════════════════════════════════════════════
+   DEBUG LOGGER
+══════════════════════════════════════════════════════ */
+function dbg(msg, color){
+  const panel = document.getElementById('debugPanel');
+  const log   = document.getElementById('debugLog');
+  if(!panel || !log) return;
+  panel.style.display = 'flex';
+  const entry = document.createElement('div');
+  entry.className = 'debug-entry';
+  entry.innerHTML = '<span class="debug-time">['+new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+']</span>'
+    + '<span class="debug-msg" style="color:'+(color||'#94a3b8')+'">'+msg+'</span>';
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+  console.log('[DBG]', msg);
+}
 
 /* ══════════════════════════════════════════════════════
    API KEY MANAGEMENT
@@ -1103,5 +1133,15 @@ window.addEventListener('DOMContentLoaded', () => {
   // else modal stays visible
 });
 </script>
+
+<!-- DEBUG PANEL -->
+<div class="debug-panel" id="debugPanel">
+  <div class="debug-header">
+    <span class="debug-title">⚡ API DEBUG LOG</span>
+    <button class="debug-close" onclick="document.getElementById('debugPanel').style.display='none'">✕ close</button>
+  </div>
+  <div class="debug-log" id="debugLog"></div>
+</div>
+
 </body>
 </html>
