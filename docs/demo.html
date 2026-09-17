@@ -370,6 +370,10 @@ function saveApiKey(){
   sessionStorage.setItem('anthropic_api_key', key);
   document.getElementById('apiModal').style.display = 'none';
   updateKeyBadge(true);
+  // Open debug panel so user can see API call logs
+  document.getElementById('debugPanel').style.display = 'block';
+  dbg('API key saved to sessionStorage — length: ' + key.length + ' chars','#4ade80');
+  dbg('Header set: anthropic-dangerous-direct-browser-access: true','#38bdf8');
   initDemo();
 }
 
@@ -673,17 +677,50 @@ function propFactors(q){
 ══════════════════════════════════════════════════════ */
 async function callClaude(system, messages){
   const apiKey = getApiKey();
-  const headers = {'Content-Type':'application/json'};
-  if(apiKey) { headers['x-api-key'] = apiKey; headers['anthropic-version'] = '2023-06-01'; }
-  const r = await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST', headers,
-    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,
-      system: system+'\n\nReturn ONLY valid JSON. No markdown. No preamble.',
-      messages})
-  });
+  if(!apiKey){
+    dbg('No API key set — enter key in modal','#f87171');
+    throw new Error('No API key');
+  }
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true'
+  };
+  dbg('Claude API call → model: claude-sonnet-4-6','#38bdf8');
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: system + '\n\nReturn ONLY valid JSON. No markdown. No preamble.',
+        messages
+      })
+    });
+  } catch(networkErr){
+    dbg('Network error: ' + networkErr.message + ' (CORS or connectivity)','#f87171');
+    dbg('Check: API key valid? GitHub Pages? Try opening browser console for details.','#fbbf24');
+    throw networkErr;
+  }
+  if(!r.ok){
+    let errText = '';
+    try { const errJson = await r.json(); errText = errJson.error?.message || JSON.stringify(errJson); } catch(e){ errText = r.statusText; }
+    dbg('API error ' + r.status + ': ' + errText,'#f87171');
+    throw new Error('API ' + r.status + ': ' + errText);
+  }
   const d = await r.json();
+  dbg('API response received — ' + (d.usage?.output_tokens||'?') + ' tokens','#4ade80');
   const t = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-  return JSON.parse(t.replace(/```json|```/g,'').trim());
+  if(!t) throw new Error('Empty response from Claude');
+  try {
+    return JSON.parse(t.replace(/```json|```/g,'').trim());
+  } catch(parseErr){
+    dbg('JSON parse error: ' + t.slice(0,100),'#fbbf24');
+    throw parseErr;
+  }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1038,7 +1075,10 @@ async function sendMsg(){
   const chatSys=`You are EXL's WhatsApp insurance assistant. Be brief (under 70 words), accurate, helpful. Only use data provided. Customer: ${active.name}, quote ${active.id}, vehicle ${active.vehicle}, offer premium ₹${currentOffer?currentOffer.priceCalc.revised.toLocaleString('en-IN'):active.quotedPremium.toLocaleString('en-IN')}/yr, cover ${currentOffer?currentOffer.cover.tier:'pending'}. Return JSON: {"reply":"your response"}`;
   let res;
   try{ res=await callClaude(chatSys, convHistory); convHistory.push({role:'assistant',content:JSON.stringify(res)}); }
-  catch(e){ res={reply:'I\'m having a momentary issue. Please try again or call 1800-XXX-XXXX.'}; }
+  catch(e){ 
+    dbg('Chat call failed: '+e.message,'#f87171');
+    res={reply:'Claude API unavailable. Error: '+e.message+'. Check debug panel for details.'}; 
+  }
   await delay(200);
   waRemoveTyping();
   waAppend(`<div class="wa-msg agent">${res.reply}<div class="wa-time-stamp">${waTime()}</div></div>`);
