@@ -219,7 +219,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 
 
 /* ── API KEY MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+/* modal removed — key in Worker */
 .modal-box{background:#fff;border-radius:16px;padding:32px;width:480px;max-width:90vw;box-shadow:0 24px 60px rgba(0,0,0,0.3)}
 .modal-logo{display:flex;align-items:center;gap:10px;margin-bottom:20px}
 .modal-mark{width:36px;height:36px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
@@ -258,29 +258,7 @@ body{font-family:-apple-system,'Segoe UI',Inter,sans-serif;background:var(--navy
 
 <!-- TOP BAR -->
 
-<!-- API KEY MODAL -->
-<div class="modal-overlay" id="apiModal">
-  <div class="modal-box">
-    <div class="modal-logo">
-      <div class="modal-mark">EXL</div>
-      <div>
-        <div style="font-size:14px;font-weight:700;color:var(--navy)">EXL Agentic Demo</div>
-        <div style="font-size:11px;color:var(--ink3)">Motor Insurance · Claude AI</div>
-      </div>
-    </div>
-    <div class="modal-title">Enter your Anthropic API Key</div>
-    <div class="modal-sub">This demo uses Claude AI for personalised WhatsApp outreach and next-best-action recommendations. Your key is stored only in this browser session — never sent to any server, never committed to GitHub.</div>
-    <div class="modal-input-wrap">
-      <input class="modal-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off">
-    </div>
-    <button class="modal-btn" onclick="saveApiKey()">Start Demo</button>
-    <div class="modal-note">
-      Key stored in <b>sessionStorage</b> only — cleared when you close this tab.<br>
-      Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>
-      &nbsp;·&nbsp; <a href="#" onclick="skipApiKey()">Continue without key (fallback mode)</a>
-    </div>
-  </div>
-</div>
+<!-- API key handled by Cloudflare Worker — no browser key needed -->
 
 <!-- DATA LOAD BANNER -->
 <div class="data-banner" id="dataBanner">
@@ -390,44 +368,11 @@ function dbg(msg, color){
 ══════════════════════════════════════════════════════ */
 const REPO_BASE = 'https://raw.githubusercontent.com/AmitEXL11/Motor-Insurance-Quote-to-Policy-Conversion/main/data/gold/data_marts';
 
-function saveApiKey(){
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if(!key || !key.startsWith('sk-ant')) {
-    document.getElementById('apiKeyInput').style.borderColor = 'var(--red)';
-    document.getElementById('apiKeyInput').placeholder = 'Key must start with sk-ant-...';
-    return;
-  }
-  sessionStorage.setItem('anthropic_api_key', key);
-  document.getElementById('apiModal').style.display = 'none';
-  updateKeyBadge(true);
-  // Open debug panel so user can see API call logs
-  document.getElementById('debugPanel').style.display = 'block';
-  dbg('API key saved to sessionStorage — length: ' + key.length + ' chars','#4ade80');
-  dbg('Header set: anthropic-dangerous-direct-browser-access: true','#38bdf8');
-  initDemo();
-}
-
-function skipApiKey(){
-  document.getElementById('apiModal').style.display = 'none';
-  updateKeyBadge(false);
-  initDemo();
-}
-
-function updateKeyBadge(hasKey){
-  const strip = document.getElementById('kpiStrip');
-  const existing = document.getElementById('keyBadge');
-  if(existing) existing.remove();
-  const badge = document.createElement('div');
-  badge.id = 'keyBadge';
-  badge.className = 'key-set-badge';
-  badge.onclick = () => { sessionStorage.removeItem('anthropic_api_key'); location.reload(); };
-  badge.innerHTML = hasKey 
-    ? '<span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;display:inline-block"></span>API Key Set · click to change'
-    : '<span style="width:5px;height:5px;border-radius:50%;background:var(--amber);display:inline-block"></span>Fallback Mode · click to add key';
-  strip.appendChild(badge);
-}
-
-function getApiKey(){ return sessionStorage.getItem('anthropic_api_key') || ''; }
+// API key is stored securely in Cloudflare Worker — not needed in browser
+function getApiKey(){ return ''; } // key lives in Worker env.ANTHROPIC_API_KEY
+function saveApiKey(){}
+function skipApiKey(){ initDemo(); }
+function updateKeyBadge(){}
 
 /* ══════════════════════════════════════════════════════
    REAL DATA FETCH FROM GOLD LAYER
@@ -705,22 +650,26 @@ function propFactors(q){
 /* ══════════════════════════════════════════════════════
    CLAUDE API
 ══════════════════════════════════════════════════════ */
+// Cloudflare Worker proxy — API key stored as encrypted Worker secret
+// No key needed in browser or repo
+const PROXY_URL = 'https://exl-motor-proxy.YOUR-NAME.workers.dev'; // ← update this after deploying worker
+
 async function callClaude(system, messages){
-  const apiKey = getApiKey();
-  if(!apiKey){
-    dbg('No API key set — enter key in modal','#f87171');
-    throw new Error('No API key');
+  if(!PROXY_URL){
+    dbg('PROXY_URL not set — update cloudflare_worker.js URL in demo.html','#f87171');
+    throw new Error('Proxy URL not configured');
   }
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,
-    'anthropic-version': '2023-06-01',
-    'anthropic-dangerous-direct-browser-access': 'true'
-  };
-  dbg('Claude API call → model: claude-sonnet-4-6','#38bdf8');
+
+  // Use proxy if set (required for GitHub Pages), else direct
+  const endpoint = PROXY_URL || 'https://api.anthropic.com/v1/messages';
+  dbg((PROXY_URL ? 'Via proxy: ' : 'Direct: ') + endpoint.slice(0,50),'#38bdf8');
+
+  // API key is in the Worker — browser only sends Content-Type
+  const headers = { 'Content-Type': 'application/json' };
+
   let r;
   try {
-    r = await fetch('https://api.anthropic.com/v1/messages', {
+    r = await fetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -730,26 +679,25 @@ async function callClaude(system, messages){
         messages
       })
     });
-  } catch(networkErr){
-    dbg('Network error: ' + networkErr.message + ' (CORS or connectivity)','#f87171');
-    dbg('Check: API key valid? GitHub Pages? Try opening browser console for details.','#fbbf24');
-    throw networkErr;
+  } catch(e){
+    dbg('Network error: ' + e.message,'#f87171');
+    throw e;
   }
   if(!r.ok){
-    let errText = '';
-    try { const errJson = await r.json(); errText = errJson.error?.message || JSON.stringify(errJson); } catch(e){ errText = r.statusText; }
+    let errText='';
+    try{ const j=await r.json(); errText=j.error?.message||JSON.stringify(j); }catch(e){ errText=r.statusText; }
     dbg('API error ' + r.status + ': ' + errText,'#f87171');
-    throw new Error('API ' + r.status + ': ' + errText);
+    throw new Error(errText);
   }
   const d = await r.json();
-  dbg('API response received — ' + (d.usage?.output_tokens||'?') + ' tokens','#4ade80');
+  dbg('Response OK — ' + (d.usage?.output_tokens||'?') + ' tokens','#4ade80');
   const t = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-  if(!t) throw new Error('Empty response from Claude');
+  if(!t) throw new Error('Empty response');
   try {
     return JSON.parse(t.replace(/```json|```/g,'').trim());
-  } catch(parseErr){
-    dbg('JSON parse error: ' + t.slice(0,100),'#fbbf24');
-    throw parseErr;
+  } catch(e){
+    dbg('JSON parse failed: ' + t.slice(0,80),'#fbbf24');
+    throw e;
   }
 }
 
@@ -1123,14 +1071,10 @@ renderQuoteList();  // render demo profiles immediately as fallback
 updateKPIs();
 // Show modal on load — initDemo() called after key entry
 window.addEventListener('DOMContentLoaded', () => {
-  const existingKey = sessionStorage.getItem('anthropic_api_key');
-  if(existingKey){
-    // Key already set this session — skip modal
-    document.getElementById('apiModal').style.display = 'none';
-    updateKeyBadge(true);
-    initDemo();
-  }
-  // else modal stays visible
+  // API key is in Cloudflare Worker — start demo immediately
+  dbg('Demo loaded — API key secured in Cloudflare Worker proxy','#4ade80');
+  dbg('Proxy: ' + PROXY_URL,'#38bdf8');
+  initDemo();
 });
 </script>
 
