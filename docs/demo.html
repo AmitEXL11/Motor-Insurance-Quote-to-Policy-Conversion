@@ -652,7 +652,7 @@ function propFactors(q){
 ══════════════════════════════════════════════════════ */
 // Cloudflare Worker proxy — API key stored as encrypted Worker secret
 // No key needed in browser or repo
-const PROXY_URL = 'https://snowy-frost-1f43.kr-amit1442.workers.dev/'; // 
+const PROXY_URL = 'https://snowy-frost-1f43.kr-amit1442.workers.dev/';
 
 async function callClaude(system, messages){
   if(!PROXY_URL){
@@ -689,14 +689,30 @@ async function callClaude(system, messages){
     dbg('API error ' + r.status + ': ' + errText,'#f87171');
     throw new Error(errText);
   }
-  const d = await r.json();
-  dbg('Response OK — ' + (d.usage?.output_tokens||'?') + ' tokens','#4ade80');
+  const rawText = await r.text();
+  dbg('Raw response (' + rawText.length + ' chars): ' + rawText.slice(0,120),'#94a3b8');
+  
+  let d;
+  try { d = JSON.parse(rawText); }
+  catch(e){ dbg('Worker response is not JSON: ' + rawText.slice(0,100),'#f87171'); throw e; }
+
+  // Handle Anthropic error object
+  if(d.error){ dbg('Anthropic error: ' + d.error.message,'#f87171'); throw new Error(d.error.message); }
+
+  // Extract text from content array
   const t = (d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-  if(!t) throw new Error('Empty response');
-  try {
-    return JSON.parse(t.replace(/```json|```/g,'').trim());
-  } catch(e){
-    dbg('JSON parse failed: ' + t.slice(0,80),'#fbbf24');
+  dbg('Content text (' + t.length + ' chars): ' + t.slice(0,80),'#4ade80');
+  
+  if(!t){
+    dbg('Full response keys: ' + Object.keys(d).join(', '),'#fbbf24');
+    throw new Error('No text content in response');
+  }
+  
+  // Parse JSON from text
+  const cleaned = t.replace(/```json|```/g,'').trim();
+  try { return JSON.parse(cleaned); }
+  catch(e){
+    dbg('JSON parse failed on: ' + cleaned.slice(0,100),'#fbbf24');
     throw e;
   }
 }
